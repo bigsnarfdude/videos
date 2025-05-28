@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIRS Video Search</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <header>
+        <h1>BIRS Video Lectures</h1>
+    </header>
+    <main>
+        <section id="search-filter-controls">
+            <input type="text" id="search-bar" placeholder="Search lectures by title, speaker, abstract...">
+            <select id="year-filter">
+                <option value="">All Years</option>
+                <!-- Year options will be populated by JavaScript -->
+            </select>
+            <select id="field-filter">
+                <option value="">All Fields</option>
+                <!-- Field options will be populated by JavaScript -->
+            </select>
+        </section>
+        <section id="video-grid">
+            <!-- Videos will be loaded here by JavaScript -->
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 BIRS</p>
+    </footer>
+    <script src="static/search.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<div class="video-card">
+    <h3>{{title}}</h3>
+    <p><strong>Speaker:</strong> {{speaker_name}} ({{speaker_affiliation}})</p>
+    <p><strong>Workshop:</strong> {{workshop_title}} ({{workshop_code}}, {{workshop_year}})</p>
+    <p><strong>Abstract:</strong> {{abstract}}</p>
+    <p><strong>Duration:</strong> {{duration_minutes}} minutes</p>
+    <p><strong>Field:</strong> {{field}}</p>
+    <a href="{{video_url}}" target="_blank">Watch Video</a>
+</div>
