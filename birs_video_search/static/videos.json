@@ -1,0 +1,47 @@
+[
+  {
+    "id": "birs_lec_001",
+    "title": "Introduction to Algebraic Topology",
+    "speaker": { "name": "Dr. Elara Vance", "affiliation": "University of Mathsville", "bio_url": "" },
+    "workshop": { "code": "23w5001", "title": "Modern Methods in Topology", "type": "5-day", "year": 2023, "dates": "Jan 10-14, 2023" },
+    "content": { "abstract": "An overview of fundamental concepts in algebraic topology.", "topics": ["topology", "algebra", "geometry"], "field": "Topology", "difficulty": "graduate", "duration_minutes": 75, "language": "en" },
+    "files": { "video_url": "https://videos.birs.ca/2023/23w5001/202301100900-Vance.mp4", "video_size_mb": 500, "thumbnail_url": "", "transcript_url": "", "slides_url": "" },
+    "metadata": { "recorded_date": "2023-01-10", "upload_date": "2023-01-11", "quality": "1080p", "view_count": 150, "featured": true }
+  },
+  {
+    "id": "birs_lec_002",
+    "title": "Quantum Computing Algorithms",
+    "speaker": { "name": "Dr. Ben Carter", "affiliation": "Institute of Quantum Physics", "bio_url": "" },
+    "workshop": { "code": "24w5002", "title": "Advances in Quantum Information", "type": "5-day", "year": 2024, "dates": "Feb 12-16, 2024" },
+    "content": { "abstract": "Exploring new algorithms in quantum computing and their applications.", "topics": ["quantum computing", "algorithms", "computer science"], "field": "Computer Science", "difficulty": "research", "duration_minutes": 90, "language": "en" },
+    "files": { "video_url": "https://videos.birs.ca/2024/24w5002/202402121000-Carter.mp4", "video_size_mb": 600, "thumbnail_url": "", "transcript_url": "", "slides_url": "" },
+    "metadata": { "recorded_date": "2024-02-12", "upload_date": "2024-02-13", "quality": "1080p", "view_count": 250, "featured": false }
+  },
+  {
+    "id": "birs_lec_003",
+    "title": "Number Theory and Cryptography",
+    "speaker": { "name": "Dr. Alice Chen", "affiliation": "Stanford University", "bio_url": "https://math.stanford.edu/people/alice-chen/" },
+    "workshop": { "code": "22w5003", "title": "Applications of Number Theory", "type": "frg", "year": 2022, "dates": "Mar 14-18, 2022" },
+    "content": { "abstract": "A deep dive into the connections between number theory and modern cryptography.", "topics": ["number theory", "cryptography", "algebra"], "field": "Number Theory", "difficulty": "research", "duration_minutes": 120, "language": "en" },
+    "files": { "video_url": "https://videos.birs.ca/2022/22w5003/202203140900-Chen.mp4", "video_size_mb": 750, "thumbnail_url": "", "transcript_url": "", "slides_url": "https://www.birs.ca/workshops/2022/22w5003/files/Chen-Slides.pdf" },
+    "metadata": { "recorded_date": "2022-03-14", "upload_date": "2022-03-15", "quality": "720p", "view_count": 300, "featured": true }
+  },
+  {
+    "id": "birs_lec_004",
+    "title": "Introduction to Machine Learning",
+    "speaker": { "name": "Dr. David Lee", "affiliation": "MIT", "bio_url": "" },
+    "workshop": { "code": "23w5004", "title": "Machine Learning Foundations", "type": "summer", "year": 2023, "dates": "Jul 10-21, 2023" },
+    "content": { "abstract": "An introductory course on the fundamentals of machine learning, covering basic algorithms and theory.", "topics": ["machine learning", "artificial intelligence", "statistics"], "field": "Computer Science", "difficulty": "undergraduate", "duration_minutes": 60, "language": "en" },
+    "files": { "video_url": "https://videos.birs.ca/2023/23w5004/202307101100-Lee.mp4", "video_size_mb": 400, "thumbnail_url": "https://i.ytimg.com/vi/example/sddefault.jpg", "transcript_url": "", "slides_url": "" },
+    "metadata": { "recorded_date": "2023-07-10", "upload_date": "2023-07-11", "quality": "1080p", "view_count": 500, "featured": false }
+  },
+  {
+    "id": "birs_lec_005",
+    "title": "Geometric Analysis and PDEs",
+    "speaker": { "name": "Dr. Maria Petrova", "affiliation": "ETH Zurich", "bio_url": "https://math.ethz.ch/people/person-detail.Petrova.html" },
+    "workshop": { "code": "24w2001", "title": "Recent Advances in Geometric Analysis", "type": "2-day", "year": 2024, "dates": "Apr 22-23, 2024" },
+    "content": { "abstract": "Discussion on recent breakthroughs in geometric analysis and partial differential equations.", "topics": ["geometric analysis", "pde", "differential geometry"], "field": "Analysis", "difficulty": "research", "duration_minutes": 80, "language": "en" },
+    "files": { "video_url": "https://videos.birs.ca/2024/24w2001/202404221400-Petrova.mp4", "video_size_mb": 550, "thumbnail_url": "", "transcript_url": "https://www.birs.ca/workshops/2024/24w2001/files/Petrova-Transcript.txt", "slides_url": "" },
+    "metadata": { "recorded_date": "2024-04-22", "upload_date": "2024-04-23", "quality": "720p", "view_count": 120, "featured": true }
+  }
+]
