@@ -21,8 +21,18 @@
                 <option value="">All Fields</option>
                 <!-- Field options will be populated by JavaScript -->
             </select>
+            <div id="filter-management-area" style="margin-top: 10px; margin-bottom: 10px;">
+                <button id="clear-all-filters-button" type="button">Clear All Filters</button>
+                <div id="active-filters-display" style="margin-top: 5px;">
+                    <!-- Active filters will be shown here -->
+                </div>
+            </div>
+            <p id="search-results-count" style="margin-bottom: 10px;">
+                <!-- Search results count will be shown here -->
+            </p>
         </section>
         <section id="video-grid">
+            <p id="loading-indicator" style="display: none;">Loading videos...</p>
             <!-- Videos will be loaded here by JavaScript -->
         </section>
     </main>
