@@ -1,4 +1,4 @@
-# Product Requirements Document: BIRS Video Archive
+# BIRS Video Archive
 ## AI-Powered Discovery Platform for Global Mathematical Research Access
 
 ### Executive Summary
