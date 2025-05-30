@@ -1,5 +1,5 @@
 # BIRS Video Archive
-## AI-Powered Discovery Platform for Global Mathematical Research Access
+## AI-Powered Discovery Platform for BIRS Mathematical Research Access
 
 ### Executive Summary
 
