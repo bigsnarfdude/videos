@@ -3,17 +3,17 @@ import os
 import time
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- Configuration ---
 API_KEY_CONFIGURED = False
 try:
     # Replace with your actual API key
-    api_key = "YOUR_API_KEY"
+    api_key = "AIzaSyDSVPFmcQEqM5PH7PrGsBuJwQNzlh5gb-M"  # Set your actual API key
     genai.configure(api_key=api_key)
     
     # Simple validation - check if key looks valid (not placeholder)
-    if api_key and api_key != "YOUR_API_KEY" and len(api_key) > 10:
+    if api_key and api_key != "YOUR_API_KEY_HERE" and len(api_key) > 10:
         API_KEY_CONFIGURED = True
     else:
         print("Warning: API key appears to be placeholder or invalid.")
@@ -22,115 +22,375 @@ except Exception as e:
     print("Please ensure you have a valid API key set.")
     exit()
 
-MODEL_NAME = 'gemini-2.5-flash-preview-05-20'  # Using the specified preview model
+# --- Model Configuration ---
+MODELS_TO_TRY = [
+    'gemini-2.5-flash-preview-05-20'  # Original model
+]
 
-# --- Rate Limiting & Retry Configuration ---
-RPM_LIMIT = 10  # Requests Per Minute
+# --- Enhanced Rate Limiting & Retry Configuration ---
+RPM_LIMIT = 10  # Requests Per Minute (conservative)
 SECONDS_PER_REQUEST_MIN_DELAY = 60 / RPM_LIMIT
 
-RPD_LIMIT = 500 # Requests Per Day
-RPD_STATE_FILE = "rpd_state.json" # File to store daily request count
+# Quota management
+RPD_LIMIT = 500  # Use full quota until we hit the actual limit
+RPD_STATE_FILE = "rpd_state.json"
 
-MAX_RETRIES = 3
-INITIAL_BACKOFF_SECONDS = 5 # Initial delay for retries, increases exponentially
+MAX_RETRIES = 5  # Increased retries
+INITIAL_BACKOFF_SECONDS = 10  # Longer initial delay
+MAX_BACKOFF_SECONDS = 300  # Max 5 minutes
 
 # --- Folders ---
 TRANSCRIPTS_FOLDER = "transcripts"
 SUMMARIES_FOLDER = "summaries"
+ERROR_LOG_FILE = "processing_errors.json"
+SUCCESS_LOG_FILE = "processing_success.json"
 
-# --- RPD Counter Management ---
+# --- Enhanced Quota Management ---
 def load_rpd_state():
+    """Load daily request count with better error handling"""
     today_str = datetime.now().strftime("%Y-%m-%d")
     try:
         if os.path.exists(RPD_STATE_FILE):
             with open(RPD_STATE_FILE, 'r') as f:
                 state = json.load(f)
             if state.get("date") == today_str:
-                return state.get("count", 0)
+                return state.get("count", 0), state.get("last_reset", today_str)
+            else:
+                # New day, reset counter
+                print(f"New day detected. Resetting request count.")
+                return 0, today_str
     except Exception as e:
         print(f"Warning: Could not load RPD state from {RPD_STATE_FILE}: {e}")
-    return 0
+    return 0, today_str
 
-def save_rpd_state(count):
+def save_rpd_state(count, last_reset=None):
+    """Save daily request count"""
     today_str = datetime.now().strftime("%Y-%m-%d")
-    state = {"date": today_str, "count": count}
+    if not last_reset:
+        last_reset = today_str
+    
+    state = {
+        "date": today_str, 
+        "count": count,
+        "last_reset": last_reset,
+        "updated_at": datetime.now().isoformat()
+    }
     try:
         with open(RPD_STATE_FILE, 'w') as f:
-            json.dump(state, f)
+            json.dump(state, f, indent=2)
     except Exception as e:
         print(f"Warning: Could not save RPD state to {RPD_STATE_FILE}: {e}")
 
+def log_success(filename, summary_length, model_used, requests_used):
+    """Log successful processing"""
+    success_entry = {
+        "filename": filename,
+        "summary_length": summary_length,
+        "model_used": model_used,
+        "requests_used": requests_used,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    try:
+        if os.path.exists(SUCCESS_LOG_FILE):
+            with open(SUCCESS_LOG_FILE, 'r') as f:
+                successes = json.load(f)
+        else:
+            successes = []
+        
+        successes.append(success_entry)
+        
+        with open(SUCCESS_LOG_FILE, 'w') as f:
+            json.dump(successes, f, indent=2)
+    except Exception as e:
+        print(f"    Could not log success: {e}")
+
+def log_error(filename, error, model_used=None):
+    """Log errors for later analysis"""
+    error_entry = {
+        "filename": filename,
+        "error": str(error),
+        "error_type": type(error).__name__,
+        "model_used": model_used,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    try:
+        if os.path.exists(ERROR_LOG_FILE):
+            with open(ERROR_LOG_FILE, 'r') as f:
+                errors = json.load(f)
+        else:
+            errors = []
+        
+        errors.append(error_entry)
+        
+        with open(ERROR_LOG_FILE, 'w') as f:
+            json.dump(errors, f, indent=2)
+    except Exception as e:
+        print(f"Could not log error: {e}")
+
+def get_processing_status():
+    """Get overview of what's been processed"""
+    status = {
+        'successful_files': [],
+        'failed_files': [],
+        'total_requests_used': 0,
+        'last_processed': None
+    }
+    
+    # Load success log
+    try:
+        if os.path.exists(SUCCESS_LOG_FILE):
+            with open(SUCCESS_LOG_FILE, 'r') as f:
+                successes = json.load(f)
+            status['successful_files'] = [s['filename'] for s in successes]
+            if successes:
+                status['last_processed'] = successes[-1]['timestamp']
+                status['total_requests_used'] = successes[-1]['requests_used']
+    except Exception as e:
+        print(f"Could not load success log: {e}")
+    
+    # Load error log
+    try:
+        if os.path.exists(ERROR_LOG_FILE):
+            with open(ERROR_LOG_FILE, 'r') as f:
+                errors = json.load(f)
+            status['failed_files'] = [e['filename'] for e in errors]
+    except Exception as e:
+        print(f"Could not load error log: {e}")
+    
+    return status
+
+def check_quota_exceeded_error(error_message):
+    """Check if the error is specifically about quota being exceeded"""
+    quota_indicators = [
+        "ResourceExhausted",
+        "429",
+        "quota",
+        "exceeded",
+        "current quota",
+        "rate limit",
+        "GenerateRequestsPerDayPerProjectPerModel"
+    ]
+    error_str = str(error_message).lower()
+    return any(indicator.lower() in error_str for indicator in quota_indicators)
+
+def get_quota_reset_time(error_message):
+    """Extract quota reset time from error message if available"""
+    # For daily quotas, they typically reset at midnight UTC
+    tomorrow = datetime.now() + timedelta(days=1)
+    reset_time = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+    return reset_time
+
 # Initialize RPD count for this session
-requests_made_today = load_rpd_state()
+requests_made_today, last_reset_date = load_rpd_state()
 
 def create_math_summary_prompt(transcript_text: str) -> str:
-    """Create enhanced prompt for mathematical content"""
-    return f"""Analyze this mathematics PhD lecture transcript and create a comprehensive summary for academic discovery.
+    """Create enhanced but more concise prompt for mathematical content"""
+    # Truncate very long transcripts to avoid token limits
+    if len(transcript_text) > 15000:
+        transcript_text = transcript_text[:15000] + "\n\n[Transcript truncated for processing]"
+    
+    return f"""Analyze this mathematics lecture transcript and create a comprehensive summary.
 
-**CRITICAL REQUIREMENTS:**
-- Extract ALL mathematical concepts, theorems, and formulas mentioned
-- Preserve exact mathematical terminology and notation
-- Identify the specific mathematical areas and subfields
-- Note connections between different mathematical concepts
-- Capture the logical progression of ideas
-
-**FORMAT YOUR RESPONSE AS:**
+**Create a structured summary with:**
 
 ## **Core Mathematical Content**
-**Primary Field:** [e.g., Algebraic Geometry, Dynamical Systems, etc.]
-**Subfields:** [specific areas covered]
-**Level:** [undergraduate/graduate/research level]
+**Primary Field:** [main area, e.g., Algebra, Analysis, etc.]
+**Level:** [undergraduate/graduate/research]
 
-## **Key Mathematical Concepts**
-- **Theorems/Results:** [list with exact names when given]
-- **Mathematical Objects:** [groups, spaces, operators, etc.]
-- **Techniques/Methods:** [computational methods, proof techniques]
-- **Formulas/Equations:** [key mathematical expressions mentioned]
+## **Key Concepts & Results**
+- Main theorems, definitions, or results mentioned
+- Important mathematical objects or structures
+- Key techniques or methods discussed
 
-## **Detailed Summary**
-[2-3 paragraph flowing summary covering:]
-- Main mathematical ideas and their development
-- How concepts build upon each other
-- Specific examples or applications discussed
-- Novel insights or connections revealed
+## **Summary**
+[2-3 paragraphs covering the main mathematical ideas and their development]
 
-## **Prerequisites & Context**
-**Background Needed:** [what students should know first]
-**Related Areas:** [connections to other mathematical fields]
-**Applications:** [practical or theoretical applications mentioned]
+## **Context**
+**Prerequisites:** [background needed]
+**Applications:** [if mentioned]
 
-## **Notable Quotes/Key Insights**
-[1-2 direct quotes that capture essential mathematical ideas]
+**TRANSCRIPT:**
+{transcript_text}"""
 
-**TRANSCRIPT TO ANALYZE:**
-{transcript_text}
+def generate_title(transcript_text, model_name='gemini-2.5-flash-preview-05-20'):
+    """Generate title - DISABLED, always returns default"""
+    return "Mathematical Lecture"
 
-**MATHEMATICAL CONTENT SUMMARY:**"""
+def try_with_different_models(func, *args, **kwargs):
+    """Try the function with the configured model"""
+    global requests_made_today
+    
+    # Skip if this is title generation (disabled)
+    if func.__name__ == 'generate_title':
+        return "Mathematical Lecture", "none"
+    
+    model_name = MODELS_TO_TRY[0]  # Only one model configured
+    print(f"  Trying model: {model_name}")
+    
+    try:
+        result = func(*args, model_name=model_name, **kwargs)
+        if not result.startswith("Error:"):
+            requests_made_today += 1
+            save_rpd_state(requests_made_today, last_reset_date)
+            return result, model_name
+        else:
+            print(f"  Model error: {result} - EXITING")
+            exit(1)
+            
+    except Exception as e:
+        print(f"  Model exception: {e} - EXITING")
+        exit(1)
 
-def create_title_prompt(transcript_text: str) -> str:
-    """Create prompt for title extraction"""
-    excerpt = transcript_text[:2000]
-    return f"""Based on this mathematics lecture transcript excerpt, suggest a clear, descriptive title.
+def summarize_transcript(transcript_text, model_name='gemini-2.5-flash-preview-05-20'):
+    """Enhanced summarization with comprehensive error handling"""
+    global API_KEY_CONFIGURED
+    if not API_KEY_CONFIGURED:
+        return "Error: API key not properly configured."
 
-GUIDELINES:
-- Include the main mathematical topic/area
-- Mention key concepts or theorems if clear
-- Keep it academic but accessible
-- 5-15 words maximum
+    try:
+        model = genai.GenerativeModel(model_name)
+        prompt = create_math_summary_prompt(transcript_text)
+        
+        current_backoff = INITIAL_BACKOFF_SECONDS
+        for attempt in range(MAX_RETRIES):
+            try:
+                print(f"    Attempt {attempt + 1}/{MAX_RETRIES} with {model_name}")
+                
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.3,
+                        max_output_tokens=2048,
+                    )
+                )
+                
+                # Check for API response issues based on finish_reason
+                if hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'finish_reason') and candidate.finish_reason:
+                        finish_reason = candidate.finish_reason
+                        
+                        # Map finish_reason values to error messages
+                        if finish_reason == 1:  # STOP - normal completion
+                            pass  # Continue to process response
+                        elif finish_reason == 2:  # MAX_TOKENS
+                            return "Error: Response truncated - hit maximum token limit"
+                        elif finish_reason == 3:  # SAFETY
+                            return "Error: Content blocked by safety filters"
+                        elif finish_reason == 4:  # RECITATION
+                            return "Error: Content blocked for potential copyright violation"
+                        elif finish_reason == 5:  # OTHER
+                            return "Error: Content blocked for other reasons"
+                        elif finish_reason == 6:  # BLOCKLIST
+                            return "Error: Content contains forbidden terms"
+                        elif finish_reason == 7:  # PROHIBITED_CONTENT
+                            return "Error: Content blocked as prohibited"
+                        elif finish_reason == 8:  # SPII
+                            return "Error: Content blocked - contains sensitive personal information"
+                        elif finish_reason == 9:  # MALFORMED_FUNCTION_CALL
+                            return "Error: Invalid function call generated"
+                        elif finish_reason == 0:  # FINISH_REASON_UNSPECIFIED
+                            return "Error: Unspecified API issue"
+                        else:
+                            return f"Error: Unknown finish_reason: {finish_reason}"
+                
+                # Check for valid response text
+                if hasattr(response, 'text') and response.text:
+                    summary_text = response.text.strip()
+                    
+                    # Clean up common prefixes
+                    prefixes_to_remove = [
+                        "Here is a mathematical summary:",
+                        "Here's a mathematical summary:",
+                        "Mathematical Content Summary:",
+                        "**MATHEMATICAL CONTENT SUMMARY:**",
+                        "Here is a summary:",
+                        "Summary:"
+                    ]
+                    for prefix in prefixes_to_remove:
+                        if summary_text.startswith(prefix):
+                            summary_text = summary_text[len(prefix):].strip()
+                            break
+                    
+                    return summary_text
+                    
+                # No valid text in response
+                return "Error: API response was empty or invalid"
 
-TRANSCRIPT EXCERPT:
-{excerpt}
+            except Exception as e:
+                error_name = type(e).__name__
+                error_msg = str(e)
+                print(f"    {error_name}: {error_msg}")
+                
+                # Check for quota/rate limit errors
+                if check_quota_exceeded_error(error_msg):
+                    return f"Error: QUOTA_EXCEEDED - {error_msg}"
+                
+                # Check for specific API errors
+                if "400" in error_msg and "Bad Request" in error_msg:
+                    return f"Error: Bad request - check prompt format"
+                elif "401" in error_msg or "Unauthorized" in error_msg:
+                    return f"Error: Unauthorized - check API key"
+                elif "403" in error_msg or "Forbidden" in error_msg:
+                    return f"Error: Forbidden - insufficient permissions"
+                elif "429" in error_msg:
+                    return f"Error: Rate limit exceeded"
+                elif "500" in error_msg or "Internal Server Error" in error_msg:
+                    return f"Error: Internal server error"
+                elif "503" in error_msg or "Service Unavailable" in error_msg:
+                    return f"Error: Service unavailable"
+                
+                # Retry for temporary errors
+                if attempt < MAX_RETRIES - 1:
+                    backoff_time = min(current_backoff, MAX_BACKOFF_SECONDS)
+                    print(f"    Retrying in {backoff_time} seconds...")
+                    time.sleep(backoff_time)
+                    current_backoff *= 2
+                else:
+                    return f"Error: {error_name} after {MAX_RETRIES} retries - {error_msg}"
+                    
+    except Exception as e:
+        return f"Error: Failed to initialize model {model_name}: {e}"
+    
+    return f"Error: Summarization failed after {MAX_RETRIES} attempts."
 
-SUGGESTED TITLE (just the title, nothing else):"""
+def basic_summary_validation(summary_text):
+    """Very simple validation - only catch obvious problems"""
+    if not summary_text or len(summary_text.strip()) < 50:
+        return False, "Summary too short or empty"
+    
+    if summary_text.startswith("Error:"):
+        return False, "Contains error message"
+    
+    word_count = len(summary_text.split())
+    
+    # Only fail if extremely short
+    if word_count < 50:
+        return False, f"Too brief ({word_count} words)"
+    
+    return True, f"Valid summary ({word_count} words)"
 
-def extract_metadata(summary_text: str) -> dict:
+def detect_quota_exhaustion_response(summary_text):
+    """Detect if this looks like a quota-exhausted response"""
+    if not summary_text:
+        return True
+    
+    word_count = len(summary_text.split())
+    
+    # The specific 60-80 word pattern you identified
+    if 60 <= word_count <= 80:
+        return True
+    
+    return False
+
+def extract_metadata(summary_text):
     """Extract structured metadata from summary"""
     metadata = {
         'primary_field': '',
-        'subfields': [],
         'level': '',
         'concepts': [],
-        'theorems': [],
         'prerequisites': [],
         'applications': []
     }
@@ -141,121 +401,29 @@ def extract_metadata(summary_text: str) -> dict:
         if field_match:
             metadata['primary_field'] = field_match.group(1).strip()
         
-        # Extract subfields
-        subfields_match = re.search(r'\*\*Subfields:\*\*\s*([^\n]+)', summary_text)
-        if subfields_match:
-            metadata['subfields'] = [s.strip() for s in subfields_match.group(1).split(',')]
-        
         # Extract level
         level_match = re.search(r'\*\*Level:\*\*\s*([^\n]+)', summary_text)
         if level_match:
             metadata['level'] = level_match.group(1).strip()
             
-        # Extract concepts from Key Mathematical Concepts section
-        concepts_section = re.search(r'## \*\*Key Mathematical Concepts\*\*(.*?)(?=##|$)', summary_text, re.DOTALL)
+        # Extract concepts
+        concepts_section = re.search(r'## \*\*Key Concepts.*?\*\*(.*?)(?=##|$)', summary_text, re.DOTALL)
         if concepts_section:
             concepts_text = concepts_section.group(1)
             concept_items = re.findall(r'[-•*]\s*([^\n]+)', concepts_text)
             metadata['concepts'] = [item.strip() for item in concept_items]
     
     except Exception as e:
-        print(f"Warning: Could not extract metadata: {e}")
+        print(f"    Warning: Could not extract metadata: {e}")
     
     return metadata
 
-def summarize_transcript(transcript_text, model_name=MODEL_NAME):
-    """
-    Enhanced summarization function for mathematical content
-    """
-    global API_KEY_CONFIGURED
-    if not API_KEY_CONFIGURED:
-        return "Error: API key not properly configured. Cannot generate summary."
-
-    model = genai.GenerativeModel(model_name)
-    
-    # Use enhanced mathematical prompt
-    prompt = create_math_summary_prompt(transcript_text)
-    
-    current_backoff = INITIAL_BACKOFF_SECONDS
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = model.generate_content(prompt)
-            
-            if hasattr(response, 'text') and response.text:
-                summary_text = response.text.strip()
-                
-                # Clean up common prefixes
-                prefixes_to_remove = [
-                    "Here is a mathematical summary:",
-                    "Here's a mathematical summary:",
-                    "Mathematical Content Summary:",
-                    "**MATHEMATICAL CONTENT SUMMARY:**",
-                    "Here is a factual summary of the transcript:",
-                    "Here is a summary of the transcript:",
-                    "Summary of the transcript:",
-                    "Here's a summary:",
-                    "Summary:"
-                ]
-                for prefix in prefixes_to_remove:
-                    if summary_text.startswith(prefix):
-                        summary_text = summary_text[len(prefix):].strip()
-                        break
-                        
-                return summary_text
-                
-            elif response.parts:
-                full_text = "".join(part.text for part in response.parts if hasattr(part, 'text'))
-                if full_text:
-                    return full_text
-                    
-            return "Error: Summarization succeeded but API response was empty or in an unexpected format."
-
-        except AttributeError:
-            return "Error: Could not get response.text. The response object might not have a 'text' attribute or the API call failed."
-        except Exception as e:
-            error_name = type(e).__name__
-            print(f"  Attempt {attempt + 1} of {MAX_RETRIES} failed: {error_name} - {e}")
-            if attempt < MAX_RETRIES - 1:
-                print(f"  Retrying in {current_backoff} seconds...")
-                time.sleep(current_backoff)
-                current_backoff *= 2
-            else:
-                return f"An error occurred after {MAX_RETRIES} retries: {error_name} - {e}"
-                
-    return f"Error: Summarization failed after {MAX_RETRIES} attempts."
-
-def generate_title(transcript_text, model_name=MODEL_NAME):
-    """Generate a meaningful title from transcript"""
-    global API_KEY_CONFIGURED
-    if not API_KEY_CONFIGURED:
-        return "Mathematical Lecture"
-
-    model = genai.GenerativeModel(model_name)
-    prompt = create_title_prompt(transcript_text)
-    
-    try:
-        response = model.generate_content(prompt)
-        if hasattr(response, 'text') and response.text:
-            title = response.text.strip()
-            # Clean up title
-            title = re.sub(r'^[*"\'`]+|[*"\'`]+$', '', title)
-            if len(title) > 100:
-                title = title[:97] + "..."
-            return title
-    except Exception as e:
-        print(f"Warning: Could not generate title: {e}")
-    
-    return "Mathematical Lecture"
-
 def process_all_transcripts(transcripts_dir, summaries_dir):
-    """
-    Enhanced processing function with JSON output and metadata extraction
-    """
-    global requests_made_today
-    global API_KEY_CONFIGURED
+    """Enhanced processing with better quota management"""
+    global requests_made_today, API_KEY_CONFIGURED
 
     if not API_KEY_CONFIGURED:
-        print("Halting processing as API Key is not configured.")
+        print("ERROR: API Key is not configured. Please set your API key.")
         return
 
     if not os.path.exists(summaries_dir):
@@ -263,25 +431,29 @@ def process_all_transcripts(transcripts_dir, summaries_dir):
             os.makedirs(summaries_dir)
             print(f"Created summaries directory: {summaries_dir}")
         except OSError as e:
-            print(f"Error creating directory {summaries_dir}: {e}")
+            print(f"ERROR: Error creating directory {summaries_dir}: {e}")
             return
 
     if not os.path.isdir(transcripts_dir):
-        print(f"Error: Transcripts directory '{transcripts_dir}' not found.")
+        print(f"ERROR: Transcripts directory '{transcripts_dir}' not found.")
         return
 
     print(f"Looking for transcripts in: {os.path.abspath(transcripts_dir)}")
-    print(f"Daily request limit (RPD): {RPD_LIMIT}. Requests made so far today: {requests_made_today}")
+    print(f"Daily request limit: {RPD_LIMIT}. Used today: {requests_made_today}")
 
     files_to_process = [f for f in os.listdir(transcripts_dir) if f.endswith(".txt")]
     if not files_to_process:
         print(f"No .txt files found in '{transcripts_dir}'.")
         return
 
+    # Sort files to process consistently
+    files_to_process.sort()
+
     results_summary = {
         'processed': 0,
         'failed': 0,
         'skipped': 0,
+        'quota_exceeded': 0,
         'files': []
     }
 
@@ -289,61 +461,81 @@ def process_all_transcripts(transcripts_dir, summaries_dir):
         transcript_filepath = os.path.join(transcripts_dir, filename)
         base_name = os.path.splitext(filename)[0]
         
-        # Output files - both JSON and TXT
         json_output_path = os.path.join(summaries_dir, f"{base_name}_SUMMARY.json")
         txt_output_path = os.path.join(summaries_dir, f"{base_name}_SUMMARY.txt")
 
-        print(f"\n📝 Processing: {filename}")
+        print(f"\nProcessing: {filename}")
 
-        # Check if already exists
+        # Check if already processed successfully
         if os.path.exists(json_output_path):
-            print(f"  ✅ Summary already exists, skipping...")
-            results_summary['skipped'] += 1
-            continue
-
-        if requests_made_today >= RPD_LIMIT:
-            print(f"  RPD limit of {RPD_LIMIT} reached for today. Halting further processing.")
-            save_rpd_state(requests_made_today)
-            break
+            try:
+                with open(json_output_path, 'r') as f:
+                    existing_data = json.load(f)
+                summary = existing_data.get('summary', '')
+                is_valid, _ = basic_summary_validation(summary)
+                if summary and not summary.startswith('Error:') and is_valid:
+                    print(f"  Valid summary exists, skipping...")
+                    results_summary['skipped'] += 1
+                    continue
+            except:
+                print(f"  Existing file corrupted, reprocessing...")
 
         try:
             with open(transcript_filepath, 'r', encoding='utf-8') as f:
                 transcript_content = f.read()
 
             if not transcript_content.strip():
-                print("  File is empty. Skipping.")
+                print("  File is empty, skipping...")
                 results_summary['skipped'] += 1
                 continue
+            
+            print(f"  Transcript length: {len(transcript_content)} characters")
             
             # Record start time for rate limiting
             call_start_time = time.time()
 
-            # Generate summary
-            summary = summarize_transcript(transcript_content)
+            # Try summarization with different models
+            print("  Generating summary...")
+            try:
+                summary, model_used = try_with_different_models(summarize_transcript, transcript_content)
+            except Exception as e:
+                if "QUOTA_EXCEEDED" in str(e):
+                    print(f"  QUOTA EXHAUSTED - HALTING")
+                    print(f"  Successfully processed {results_summary['processed']} files before hitting limit")
+                    results_summary['quota_exceeded'] += 1
+                    break
+                else:
+                    print(f"  API ERROR: {e} - HALTING")
+                    results_summary['failed'] += 1
+                    break
             
-            # Count request if successful
-            if not summary.startswith("Error:"):
-                requests_made_today += 1
-                save_rpd_state(requests_made_today)
-                print(f"  Requests today: {requests_made_today}/{RPD_LIMIT}")
-
-            if summary.startswith("Error:"):
-                print(f"  ❌ Summary generation failed")
+            if summary is None:
+                print(f"  All models failed")
+                log_error(filename, "All models failed", "multiple")
                 results_summary['failed'] += 1
                 continue
 
-            # Generate title (this will use another request)
+            if summary.startswith("Error:"):
+                if check_quota_exceeded_error(summary):
+                    print(f"  QUOTA EXCEEDED - HALTING")
+                    results_summary['quota_exceeded'] += 1
+                    break
+                else:
+                    print(f"  API ERROR: {summary} - HALTING")
+                    log_error(filename, summary, model_used)
+                    results_summary['failed'] += 1
+                    break
+
+            print(f"  Summary generated using {model_used}")
+
+            # Use default title (no API call)
             title = "Mathematical Lecture"
-            if requests_made_today < RPD_LIMIT:
-                title = generate_title(transcript_content)
-                if not title.startswith("Error:"):
-                    requests_made_today += 1
-                    save_rpd_state(requests_made_today)
+            print("  Using default title (title generation disabled)")
 
             # Extract metadata
             metadata = extract_metadata(summary)
             
-            # Prepare JSON output
+            # Prepare outputs
             json_data = {
                 'original_filename': filename,
                 'suggested_title': title,
@@ -353,100 +545,161 @@ def process_all_transcripts(transcripts_dir, summaries_dir):
                     'summary_word_count': len(summary.split()),
                     'summary_char_count': len(summary),
                     'transcript_length': len(transcript_content),
-                    'compression_ratio': len(summary) / len(transcript_content) if transcript_content else 0,
-                    'processed_at': datetime.now().isoformat()
+                    'compression_ratio': len(summary) / len(transcript_content) if transcript_content else 0
                 },
                 'generated_at': datetime.now().isoformat(),
-                'model_used': MODEL_NAME
+                'model_used': model_used,
+                'requests_used': requests_made_today
             }
 
-            # Save JSON output
+            # Save outputs
             try:
                 with open(json_output_path, 'w', encoding='utf-8') as f:
                     json.dump(json_data, f, indent=2, ensure_ascii=False)
-                print(f"  💾 JSON saved: {os.path.basename(json_output_path)}")
+                print(f"  JSON saved: {os.path.basename(json_output_path)}")
             except Exception as e:
-                print(f"  ❌ Error saving JSON: {e}")
+                print(f"  ERROR saving JSON: {e}")
                 results_summary['failed'] += 1
                 continue
 
-            # Save readable text output
+            # Save readable text
             try:
                 text_output = f"""MATHEMATICS LECTURE SUMMARY
 {'='*60}
 Title: {title}
 Original File: {filename}
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Model Used: {model_used}
 
 {summary}
 
 {'='*60}
 Processing Stats:
-- Summary Length: {len(summary.split())} words
+- Summary Length: {len(summary.split())} words ({len(summary)} chars)
 - Compression Ratio: {len(summary) / len(transcript_content):.1%}
-- Model Used: {MODEL_NAME}
+- Total Requests Used Today: {requests_made_today}/{RPD_LIMIT}
 """
                 
                 with open(txt_output_path, 'w', encoding='utf-8') as f:
                     f.write(text_output)
-                print(f"  💾 Text saved: {os.path.basename(txt_output_path)}")
+                print(f"  Text saved: {os.path.basename(txt_output_path)}")
             except Exception as e:
-                print(f"  ❌ Error saving text: {e}")
+                print(f"  ERROR saving text: {e}")
 
             results_summary['processed'] += 1
             results_summary['files'].append({
                 'filename': filename,
                 'title': title,
                 'primary_field': metadata.get('primary_field', 'Unknown'),
-                'word_count': len(summary.split())
+                'word_count': len(summary.split()),
+                'model_used': model_used
             })
 
-            # Rate limiting delay
+            # Log successful processing
+            log_success(filename, len(summary.split()), model_used, requests_made_today)
+
+            # Rate limiting
             call_duration = time.time() - call_start_time
             sleep_time = max(0, SECONDS_PER_REQUEST_MIN_DELAY - call_duration)
             if sleep_time > 0:
-                print(f"  ⏱️ Waiting {sleep_time:.2f}s for rate limit...")
+                print(f"  Rate limiting delay: {sleep_time:.1f}s")
                 time.sleep(sleep_time)
-            else:
-                time.sleep(0.1)
 
         except FileNotFoundError:
-            print(f"  Error: File not found {transcript_filepath}")
+            print(f"  ERROR: File not found: {transcript_filepath}")
             results_summary['failed'] += 1
         except Exception as e:
-            print(f"  An error occurred processing {filename}: {e}")
+            print(f"  ERROR processing {filename}: {e}")
+            log_error(filename, str(e), "unknown")
             results_summary['failed'] += 1
-            time.sleep(SECONDS_PER_REQUEST_MIN_DELAY)
     
-    # Print final summary
-    print(f"\n🎉 Processing Complete!")
-    print(f"  ✅ Processed: {results_summary['processed']}")
-    print(f"  ⚠️ Skipped: {results_summary['skipped']}")
-    print(f"  ❌ Failed: {results_summary['failed']}")
-    print(f"  📊 Total requests used today: {requests_made_today}/{RPD_LIMIT}")
+    # Final summary
+    print(f"\nProcessing Complete!")
+    print(f"  Processed: {results_summary['processed']}")
+    print(f"  Skipped: {results_summary['skipped']}")  
+    print(f"  Failed: {results_summary['failed']}")
+    print(f"  Quota Exceeded: {results_summary['quota_exceeded']}")
+    print(f"  Total requests used: {requests_made_today}/{RPD_LIMIT}")
+    
+    if requests_made_today >= RPD_LIMIT or results_summary['quota_exceeded'] > 0:
+        reset_time = get_quota_reset_time("")
+        print(f"  Quota limit reached! Resets at: {reset_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        print(f"  You can resume processing tomorrow or upgrade your plan")
+        if results_summary['quota_exceeded'] > 0:
+            print(f"  Found quota exhaustion pattern at file #{results_summary['processed'] + 1}")
     
     if results_summary['files']:
-        print(f"\n📋 Successfully Processed Files:")
-        for file_info in results_summary['files']:
-            print(f"  • {file_info['filename']}")
-            print(f"    Title: {file_info['title']}")
-            print(f"    Field: {file_info['primary_field']}")
-            print(f"    Summary: {file_info['word_count']} words")
+        print(f"\nSuccessfully Processed Files:")
+        valid_count = sum(1 for f in results_summary['files'] if f['is_valid'])
+        print(f"Valid Summaries: {valid_count}/{len(results_summary['files'])}")
+        
+        # Show where quota degradation started
+        degraded_files = [f for f in results_summary['files'] if not f['is_valid']]
+        if degraded_files:
+            print(f"Degraded responses detected starting around file #{len(results_summary['files']) - len(degraded_files) + 1}")
+        
+        print()
+        for i, file_info in enumerate(results_summary['files']):
+            status_emoji = "VALID" if file_info['is_valid'] else "REVIEW"
+            print(f"  {i+1:3d}. {file_info['filename']}")
+            print(f"       Title: {file_info['title']}")
+            print(f"       Field: {file_info['primary_field']}")
+            print(f"       Stats: {file_info['word_count']} words ({file_info['model_used']})")
+            print(f"       Status: {status_emoji}")
+            print()
 
+def show_quota_status():
+    """Show current quota status and processing history"""
+    requests_today, last_reset = load_rpd_state()
+    print(f"\nCurrent Quota Status:")
+    print(f"  Date: {datetime.now().strftime('%Y-%m-%d')}")
+    print(f"  Requests used today: {requests_today}/{RPD_LIMIT}")
+    print(f"  Remaining requests: {RPD_LIMIT - requests_today}")
+    
+    if requests_today >= RPD_LIMIT:
+        reset_time = get_quota_reset_time("")
+        print(f"  Quota exceeded! Resets at: {reset_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    else:
+        print(f"  Quota available")
+    
+    # Show processing status
+    status = get_processing_status()
+    if status['successful_files'] or status['failed_files']:
+        print(f"\nProcessing History:")
+        print(f"  Successfully processed: {len(status['successful_files'])} files")
+        print(f"  Failed: {len(status['failed_files'])} files")
+        if status['last_processed']:
+            print(f"  Last processed: {status['last_processed']}")
+        
+        # Show recent files
+        if status['successful_files']:
+            recent = status['successful_files'][-5:]
+            print(f"  Recent successes: {', '.join(recent)}")
+        
+        if status['failed_files']:
+            recent_fails = status['failed_files'][-3:]
+            print(f"  Recent failures: {', '.join(recent_fails)}")
 
 if __name__ == "__main__":
+    print("Mathematics Transcript Summarizer with Enhanced Quota Management")
+    print("="*70)
+    
     if not API_KEY_CONFIGURED:
-        print("-" * 50)
-        print("!!! IMPORTANT WARNING !!!")
-        print("API key is not configured or is still set to the placeholder.")
-        print("Please replace the API key in the script with your actual Gemini API key.")
-        print("Processing will not start due to missing API key configuration.")
-        print("-" * 50)
-    else:
-        # Ensure 'transcripts' folder exists
-        if not os.path.exists(TRANSCRIPTS_FOLDER):
-            os.makedirs(TRANSCRIPTS_FOLDER)
-            print(f"'{TRANSCRIPTS_FOLDER}' directory created. Please add your transcript files there.")
-
+        print("ERROR: IMPORTANT: API key not configured!")
+        print("Please set your Gemini API key in the script.")
+        print("You can get one at: https://ai.google.dev/")
+        exit(1)
+    
+    show_quota_status()
+    
+    # Ensure transcripts folder exists
+    if not os.path.exists(TRANSCRIPTS_FOLDER):
+        os.makedirs(TRANSCRIPTS_FOLDER)
+        print(f"Created '{TRANSCRIPTS_FOLDER}' directory - add your transcript files here.")
+    
+    if input("\nStart processing? (y/N): ").lower().strip() == 'y':
         process_all_transcripts(TRANSCRIPTS_FOLDER, SUMMARIES_FOLDER)
-        print("\nProcessing complete.")
+    else:
+        print("Processing cancelled.")
+    
+    print(f"\nDone! Check the '{SUMMARIES_FOLDER}' folder for results.")
