@@ -1,0 +1,1 @@
+So let's get started results that hopefully all know. So let's say you have an undirected possibly weighted graph and you have this kind of worker.                                                                                                                      
