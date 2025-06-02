@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 API_KEY_CONFIGURED = False
 try:
     # Replace with your actual API key
-    api_key = "AIzaSyDSVPFmcQEqM5PH7PrGsBuJwQNzlh5gb-M"  # Set your actual API key
+    api_key = "AIzaSyBP90XfkTG__X0QV9fUbfAqWXr6k5dQp9s"
     genai.configure(api_key=api_key)
     
     # Simple validation - check if key looks valid (not placeholder)
@@ -28,8 +28,8 @@ MODELS_TO_TRY = [
 ]
 
 # --- Enhanced Rate Limiting & Retry Configuration ---
-RPM_LIMIT = 10  # Requests Per Minute (conservative)
-SECONDS_PER_REQUEST_MIN_DELAY = 60 / RPM_LIMIT
+RPM_LIMIT = 6  # Requests Per Minute (more conservative)
+SECONDS_PER_REQUEST_MIN_DELAY = 10  # 10 seconds between requests
 
 # Quota management
 RPD_LIMIT = 500  # Use full quota until we hit the actual limit
@@ -186,30 +186,27 @@ def get_quota_reset_time(error_message):
 requests_made_today, last_reset_date = load_rpd_state()
 
 def create_math_summary_prompt(transcript_text: str) -> str:
-    """Create enhanced but more concise prompt for mathematical content"""
-    # Truncate very long transcripts to avoid token limits
-    if len(transcript_text) > 15000:
-        transcript_text = transcript_text[:15000] + "\n\n[Transcript truncated for processing]"
+    """Create concise but effective prompt for mathematical content"""
+    # More aggressive truncation for very long transcripts
+    if len(transcript_text) > 12000:
+        transcript_text = transcript_text[:12000] + "\n\n[Transcript truncated for processing]"
     
-    return f"""Analyze this mathematics lecture transcript and create a comprehensive summary.
+    return f"""Analyze this mathematics lecture and create a structured summary.
 
-**Create a structured summary with:**
-
-## **Core Mathematical Content**
-**Primary Field:** [main area, e.g., Algebra, Analysis, etc.]
+**Format:**
+## Core Content
+**Field:** [main mathematical area]
 **Level:** [undergraduate/graduate/research]
 
-## **Key Concepts & Results**
-- Main theorems, definitions, or results mentioned
-- Important mathematical objects or structures
-- Key techniques or methods discussed
+## Key Topics
+- [3-5 main concepts, theorems, or techniques covered]
 
-## **Summary**
-[2-3 paragraphs covering the main mathematical ideas and their development]
+## Summary
+[2-3 focused paragraphs covering the mathematical content and its development]
 
-## **Context**
-**Prerequisites:** [background needed]
-**Applications:** [if mentioned]
+## Context  
+**Prerequisites:** [background knowledge needed]
+**Applications:** [if mentioned in lecture]
 
 **TRANSCRIPT:**
 {transcript_text}"""
@@ -244,7 +241,7 @@ def try_with_different_models(func, *args, **kwargs):
         exit(1)
 
 def summarize_transcript(transcript_text, model_name='gemini-2.5-flash-preview-05-20'):
-    """Enhanced summarization with comprehensive error handling"""
+    """Enhanced summarization with comprehensive error handling and better token management"""
     global API_KEY_CONFIGURED
     if not API_KEY_CONFIGURED:
         return "Error: API key not properly configured."
@@ -262,7 +259,7 @@ def summarize_transcript(transcript_text, model_name='gemini-2.5-flash-preview-0
                     prompt,
                     generation_config=genai.types.GenerationConfig(
                         temperature=0.3,
-                        max_output_tokens=2048,
+                        max_output_tokens=4096,  # INCREASED FROM 2048
                     )
                 )
                 
@@ -276,7 +273,12 @@ def summarize_transcript(transcript_text, model_name='gemini-2.5-flash-preview-0
                         if finish_reason == 1:  # STOP - normal completion
                             pass  # Continue to process response
                         elif finish_reason == 2:  # MAX_TOKENS
-                            return "Error: Response truncated - hit maximum token limit"
+                            # IMPROVED HANDLING FOR MAX_TOKENS - Don't exit immediately
+                            if hasattr(response, 'text') and response.text and len(response.text.strip()) > 200:
+                                print(f"    Warning: Response truncated but got {len(response.text)} chars - using partial response")
+                                return response.text.strip()  # Return what we got instead of erroring
+                            else:
+                                return "Error: Response truncated - hit maximum token limit"
                         elif finish_reason == 3:  # SAFETY
                             return "Error: Content blocked by safety filters"
                         elif finish_reason == 4:  # RECITATION
@@ -397,7 +399,7 @@ def extract_metadata(summary_text):
     
     try:
         # Extract primary field
-        field_match = re.search(r'\*\*Primary Field:\*\*\s*([^\n]+)', summary_text)
+        field_match = re.search(r'\*\*Field:\*\*\s*([^\n]+)', summary_text)
         if field_match:
             metadata['primary_field'] = field_match.group(1).strip()
         
@@ -406,12 +408,26 @@ def extract_metadata(summary_text):
         if level_match:
             metadata['level'] = level_match.group(1).strip()
             
-        # Extract concepts
-        concepts_section = re.search(r'## \*\*Key Concepts.*?\*\*(.*?)(?=##|$)', summary_text, re.DOTALL)
-        if concepts_section:
-            concepts_text = concepts_section.group(1)
-            concept_items = re.findall(r'[-•*]\s*([^\n]+)', concepts_text)
+        # Extract concepts from Key Topics section
+        topics_section = re.search(r'## Key Topics(.*?)(?=##|$)', summary_text, re.DOTALL)
+        if topics_section:
+            topics_text = topics_section.group(1)
+            concept_items = re.findall(r'[-•*]\s*([^\n]+)', topics_text)
             metadata['concepts'] = [item.strip() for item in concept_items]
+        
+        # Extract prerequisites
+        prereq_match = re.search(r'\*\*Prerequisites:\*\*\s*([^\n]+)', summary_text)
+        if prereq_match:
+            prereq_text = prereq_match.group(1).strip()
+            if prereq_text and prereq_text.lower() not in ['none', 'n/a', 'not mentioned']:
+                metadata['prerequisites'] = [prereq_text]
+        
+        # Extract applications
+        app_match = re.search(r'\*\*Applications:\*\*\s*([^\n]+)', summary_text)
+        if app_match:
+            app_text = app_match.group(1).strip()
+            if app_text and app_text.lower() not in ['none', 'n/a', 'not mentioned']:
+                metadata['applications'] = [app_text]
     
     except Exception as e:
         print(f"    Warning: Could not extract metadata: {e}")
@@ -528,6 +544,10 @@ def process_all_transcripts(transcripts_dir, summaries_dir):
 
             print(f"  Summary generated using {model_used}")
 
+            # Validate summary
+            is_valid, validation_msg = basic_summary_validation(summary)
+            print(f"  Validation: {validation_msg}")
+
             # Use default title (no API call)
             title = "Mathematical Lecture"
             print("  Using default title (title generation disabled)")
@@ -545,7 +565,9 @@ def process_all_transcripts(transcripts_dir, summaries_dir):
                     'summary_word_count': len(summary.split()),
                     'summary_char_count': len(summary),
                     'transcript_length': len(transcript_content),
-                    'compression_ratio': len(summary) / len(transcript_content) if transcript_content else 0
+                    'compression_ratio': len(summary) / len(transcript_content) if transcript_content else 0,
+                    'is_valid': is_valid,
+                    'validation_msg': validation_msg
                 },
                 'generated_at': datetime.now().isoformat(),
                 'model_used': model_used,
@@ -570,6 +592,7 @@ Title: {title}
 Original File: {filename}
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Model Used: {model_used}
+Validation: {validation_msg}
 
 {summary}
 
@@ -592,7 +615,8 @@ Processing Stats:
                 'title': title,
                 'primary_field': metadata.get('primary_field', 'Unknown'),
                 'word_count': len(summary.split()),
-                'model_used': model_used
+                'model_used': model_used,
+                'is_valid': is_valid
             })
 
             # Log successful processing
