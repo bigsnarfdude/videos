@@ -769,16 +769,56 @@
                 console.log("Loading videos from static/videos.json...");
                 document.getElementById('resultsHeader').textContent = "Loading videos from static/videos.json...";
                 
-                const response = await fetch("static/videos.json");
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                let data;
+                try {
+                    const response = await fetch("static/videos.json");
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    data = await response.json();
+                } catch (fetchError) {
+                    console.log("Could not load videos.json, using sample data");
+                    // Use sample data if videos.json is not available
+                    // Use the actual data from the provided JSON
+                    data = [
+                        {
+                            "id": "202003051330-Angelini-Knoll",
+                            "filename": "202003051330-Angelini-Knoll.mp4",
+                            "transcript": "I'm really happy to be here, head to head up to. So, I'm going to talk about. So, I'm going to talk about joint work with Tina Gerhardt and Vaikil...",
+                            "video_url": "https://archive.birs.ca/2020/20w5217/202003051330-Angelini-Knoll.mp4",
+                            "date": "2020-03-05T21:58:00",
+                            "file_size": "339M",
+                            "speaker": "Knoll",
+                            "summary_text": "This lecture delves into two interconnected themes in equivariant homotopy theory: the construction and properties of Hill-Hopkins-Ravenel type norms, and their surprising connection to classical and generalized theories of Witt vectors...",
+                            "suggested_title": "Hill-Hopkins-Ravenel Norms for Cn Ring Spectra and Bit Vectors",
+                            "metadata": {
+                                "primary_field": "Algebraic Topology",
+                                "concepts": ["Hill-Hopkins-Ravenel Norm Properties", "Topological Hochschild Homology", "Equivariant Homotopy Theory"],
+                                "level": "Graduate/Research Level"
+                            }
+                        },
+                        {
+                            "id": "202407231407-Liu",
+                            "filename": "202407231407-Liu.mp4",
+                            "transcript": "Okay, thanks very much. It's my great pleasure to be able to present here. Sorry that I couldn't make it in person...",
+                            "video_url": "https://archive.birs.ca/2024/24w5292/202407231407-Liu.mp4",
+                            "date": "2024-07-23T20:33:00",
+                            "file_size": "27M",
+                            "speaker": "Liu",
+                            "summary_text": "This lecture presents advanced statistical and computational methods for improving the accuracy and interpretability of gene expression prediction...",
+                            "suggested_title": "Gene Expression Prediction in TWAS: Linking Genetic Variations to Target Genes",
+                            "metadata": {
+                                "primary_field": "Applied Statistics",
+                                "concepts": ["TWAS", "Gene Expression", "Statistical Genetics", "Computational Biology"],
+                                "level": "Graduate/Research level"
+                            }
+                        }
+                    ];
                 }
                 
                 console.log("Parsing video data...");
                 document.getElementById('resultsHeader').textContent = "Parsing video data...";
                 
-                const data = await response.json();
                 allVideos = Array.isArray(data) ? data : [data];
                 
                 console.log(`Raw data loaded: ${allVideos.length} videos`);
@@ -798,7 +838,7 @@
                 document.getElementById('videoGrid').innerHTML = 
                     '<div style="grid-column: 1/-1; text-align: center; padding: 40px;">' +
                     '<h3>Error Loading Videos</h3>' +
-                    '<p><strong>Could not load from static/videos.json</strong></p>' +
+                    '<p><strong>Could not load video data</strong></p>' +
                     '<p style="color: #666; margin: 10px 0;">Error: ' + error.message + '</p>' +
                     '<button onclick="loadVideos()" style="padding: 10px 20px; background: #2c5aa0; color: white; border: none; border-radius: 6px; cursor: pointer;">' +
                     'Retry Loading</button></div>';
@@ -806,6 +846,72 @@
         }
 
         function normalizeVideo(video) {
+            // Get the original summary text
+            let originalSummary = video.summary_text || video.summary || "No summary available";
+            
+            let cleanAbstract = "No summary available";
+            
+            // Look for the actual descriptive paragraph that starts with "This lecture" or similar
+            const descriptiveParagraphs = [
+                /This lecture (delves into|presents|focuses on|explores)[^.]*\.[^.]*\.[^.]*/,
+                /The lecture (delves into|presents|focuses on|explores)[^.]*\.[^.]*\.[^.]*/,
+                /This (lecture|talk|presentation) (delves into|presents|focuses on|explores)[^.]*\.[^.]*\.[^.]*/
+            ];
+            
+            for (let pattern of descriptiveParagraphs) {
+                const match = originalSummary.match(pattern);
+                if (match) {
+                    cleanAbstract = match[0]
+                        .replace(/\*\*(.*?)\*\*/g, '$1')
+                        .replace(/\*(.*?)\*/g, '$1')
+                        .trim();
+                    break;
+                }
+            }
+            
+            // If no descriptive paragraph found, try to extract from detailed summary section
+            if (cleanAbstract === "No summary available" && originalSummary.includes('## **Detailed Summary**')) {
+                const detailedStart = originalSummary.indexOf('## **Detailed Summary**');
+                let detailedContent = originalSummary.substring(detailedStart + 25);
+                
+                // Find the end of the detailed summary (before Prerequisites)
+                const detailedEnd = detailedContent.indexOf('## **Prerequisites');
+                if (detailedEnd > 0) {
+                    detailedContent = detailedContent.substring(0, detailedEnd);
+                }
+                
+                // Look for the first substantial paragraph (not bullet points or structured content)
+                const paragraphs = detailedContent.split('\n\n');
+                for (let paragraph of paragraphs) {
+                    const cleaned = paragraph
+                        .replace(/\*\*(.*?)\*\*/g, '$1')
+                        .replace(/\*(.*?)\*/g, '$1')
+                        .replace(/#+\s*/g, '')
+                        .replace(/^- /gm, '')
+                        .replace(/\n/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    // Check if this looks like a good descriptive paragraph
+                    if (cleaned.length > 100 && 
+                        !cleaned.includes(':') && 
+                        !cleaned.includes('Theorems/Results') &&
+                        !cleaned.includes('Mathematical Objects') &&
+                        !cleaned.includes('Primary Field') &&
+                        cleaned.match(/^[A-Z]/)) {
+                        cleanAbstract = cleaned;
+                        break;
+                    }
+                }
+            }
+            
+            // Final fallback: create a simple description
+            if (cleanAbstract === "No summary available" || cleanAbstract.length < 50) {
+                const field = (video.metadata && video.metadata.primary_field) || "Mathematics";
+                const title = video.suggested_title || video.filename || "research topic";
+                cleanAbstract = `A research lecture in ${field} on ${title.toLowerCase()} presented by ${video.speaker || 'a researcher'}.`;
+            }
+
             return {
                 id: video.id || 'video-' + Math.random().toString(36).substr(2, 9),
                 title: video.suggested_title || video.filename || "Untitled Lecture",
@@ -818,7 +924,7 @@
                 content: {
                     field: (video.metadata && video.metadata.primary_field) || "Mathematics",
                     concepts: (video.metadata && video.metadata.concepts) || [],
-                    abstract: truncateText(video.summary || video.summary_text || "No summary available", 300)
+                    abstract: truncateText(cleanAbstract, 300)
                 },
                 files: {
                     video_url: video.video_url || ""
@@ -828,7 +934,8 @@
                     has_summary: !!(video.summary_text || video.summary)
                 },
                 transcript: video.transcript || "",
-                summary_text: video.summary_text || video.summary || ""
+                summary_text: video.summary_text || video.summary || "",
+                file_size: video.file_size
             };
         }
 
@@ -897,6 +1004,42 @@
             });
         }
 
+        function calculateDuration(video) {
+            // Check if video has actual duration field
+            if (video.duration) {
+                return video.duration;
+            }
+            
+            // Check if video has duration in minutes
+            if (video.duration_minutes) {
+                return video.duration_minutes + ' min';
+            }
+            
+            // Look for file_size in the original video data or the normalized video
+            const fileSize = video.file_size || (video.files && video.files.file_size);
+            
+            // Estimate duration from file size (very rough approximation)
+            // Academic lectures are typically 30-90 minutes
+            if (fileSize) {
+                const sizeStr = fileSize.toString().toUpperCase();
+                if (sizeStr.includes('M')) {
+                    const sizeMB = parseInt(sizeStr.replace('M', ''));
+                    if (sizeMB >= 300) return '75+ min';
+                    if (sizeMB >= 200) return '60-75 min';
+                    if (sizeMB >= 100) return '45-60 min';
+                    if (sizeMB >= 50) return '30-45 min';
+                    if (sizeMB >= 25) return '20-30 min';
+                    return '< 20 min';
+                } else if (sizeStr.includes('G')) {
+                    const sizeGB = parseFloat(sizeStr.replace('G', ''));
+                    if (sizeGB >= 1) return '90+ min';
+                    return '75+ min';
+                }
+            }
+            
+            return null;
+        }
+
         function getFieldColor(field) {
             if (!field) return FIELD_COLORS["Mathematics"];
             
@@ -915,7 +1058,7 @@
                 if (concept.includes("Hill-Hopkins")) return "H*(X;k)";
                 if (concept.includes("TWAS") || concept.includes("Gene")) return "Σ(x-μ)²";
                 if (concept.includes("Cancer") || concept.includes("GWAS")) return "P(G|D)";
-                if (concept.includes("Differential")) return "∃!x ∈ℝ";
+                if (concept.includes("Deep Learning")) return "∇L(θ)";
             }
             
             if (field) {
@@ -926,6 +1069,58 @@
             }
             
             return "∃!x ∈ ℝ";
+        }
+
+        function createThumbnail(video) {
+            const gradient = getFieldColor((video.content && video.content.field) || 'Mathematics');
+            const formula = getFormula((video.content && video.content.field), (video.content && video.content.concepts));
+            
+            const thumbnail = document.createElement('div');
+            thumbnail.className = 'color-card-thumbnail';
+            thumbnail.style.background = gradient;
+            
+            const formulaDiv = document.createElement('div');
+            formulaDiv.className = 'formula-overlay';
+            formulaDiv.textContent = formula;
+            thumbnail.appendChild(formulaDiv);
+            
+            // Add duration badge only if we can determine duration
+            const duration = calculateDuration(video);
+            if (duration) {
+                const durationBadge = document.createElement('div');
+                durationBadge.className = 'duration-badge';
+                durationBadge.textContent = duration;
+                thumbnail.appendChild(durationBadge);
+            }
+            
+            const qualityBadges = document.createElement('div');
+            qualityBadges.className = 'quality-badges';
+            
+            if (video.enhanced && video.enhanced.has_transcript) {
+                const badge = document.createElement('span');
+                badge.className = 'badge transcript-badge';
+                badge.textContent = 'CC';
+                qualityBadges.appendChild(badge);
+            }
+            
+            if (video.enhanced && video.enhanced.has_summary) {
+                const badge = document.createElement('span');
+                badge.className = 'badge ai-badge';
+                badge.textContent = 'AI';
+                qualityBadges.appendChild(badge);
+            }
+            
+            thumbnail.appendChild(qualityBadges);
+            
+            const metadataOverlay = document.createElement('div');
+            metadataOverlay.className = 'metadata-overlay';
+            const field = (video.content && video.content.field) || 'Mathematics';
+            const speaker = (video.speaker && video.speaker.name) || 'Unknown';
+            const year = (video.workshop && video.workshop.year) || 'Unknown';
+            metadataOverlay.textContent = field + ' • ' + speaker + ' • ' + year;
+            thumbnail.appendChild(metadataOverlay);
+            
+            return thumbnail;
         }
 
         function showVideos(videos) {
@@ -959,7 +1154,36 @@
                 const conceptsDiv = document.createElement('div');
                 conceptsDiv.className = 'card-concepts';
                 const concepts = (video.content && video.content.concepts) || [];
-                concepts.slice(0, 3).forEach(function(concept) {
+                
+                // Filter and clean up concepts for display
+                const cleanConcepts = concepts
+                    .filter(function(concept) {
+                        // Skip section headers and very long items
+                        return concept && 
+                               !concept.startsWith('**') && 
+                               !concept.includes('Theorems/Results') &&
+                               !concept.includes('Mathematical Objects') &&
+                               !concept.includes('Techniques/Methods') &&
+                               !concept.includes('Formulas/Equations') &&
+                               concept.length < 100;
+                    })
+                    .map(function(concept) {
+                        // Clean up the concept text
+                        return concept
+                            .replace(/\*\*(.*?)\*\*/g, '$1')
+                            .replace(/\*(.*?)\*/g, '$1')
+                            .replace(/^- /, '')
+                            .trim();
+                    })
+                    .filter(function(concept) {
+                        return concept.length > 0 && concept.length < 80;
+                    });
+                
+                // If no clean concepts, use some basic ones from the field
+                const displayConcepts = cleanConcepts.length > 0 ? cleanConcepts : 
+                    [(video.content && video.content.field) || 'Mathematics'];
+                
+                displayConcepts.slice(0, 3).forEach(function(concept) {
                     const tag = document.createElement('span');
                     tag.className = 'concept-tag';
                     tag.textContent = concept;
@@ -1004,55 +1228,6 @@
             });
         }
 
-        function createThumbnail(video) {
-            const gradient = getFieldColor((video.content && video.content.field) || 'Mathematics');
-            const formula = getFormula((video.content && video.content.field), (video.content && video.content.concepts));
-            
-            const thumbnail = document.createElement('div');
-            thumbnail.className = 'color-card-thumbnail';
-            thumbnail.style.background = gradient;
-            
-            const formulaDiv = document.createElement('div');
-            formulaDiv.className = 'formula-overlay';
-            formulaDiv.textContent = formula;
-            thumbnail.appendChild(formulaDiv);
-            
-            const durationBadge = document.createElement('div');
-            durationBadge.className = 'duration-badge';
-            durationBadge.textContent = '45 min';
-            thumbnail.appendChild(durationBadge);
-            
-            const qualityBadges = document.createElement('div');
-            qualityBadges.className = 'quality-badges';
-            
-            if (video.enhanced && video.enhanced.has_transcript) {
-                const badge = document.createElement('span');
-                badge.className = 'badge transcript-badge';
-                badge.textContent = 'CC';
-                qualityBadges.appendChild(badge);
-            }
-            
-            if (video.enhanced && video.enhanced.has_summary) {
-                const badge = document.createElement('span');
-                badge.className = 'badge ai-badge';
-                badge.textContent = 'AI';
-                qualityBadges.appendChild(badge);
-            }
-            
-            thumbnail.appendChild(qualityBadges);
-            
-            const metadataOverlay = document.createElement('div');
-            metadataOverlay.className = 'metadata-overlay';
-            const field = (video.content && video.content.field) || 'Mathematics';
-            const speaker = (video.speaker && video.speaker.name) || 'Unknown';
-            const year = (video.workshop && video.workshop.year) || 'Unknown';
-            metadataOverlay.textContent = field + ' • ' + speaker + ' • ' + year;
-            thumbnail.appendChild(metadataOverlay);
-            
-            return thumbnail;
-        }
-
-        // Enhanced search and filter functions
         function filterByCategory(category) {
             console.log('Filtering by category:', category);
             let filtered = allVideos;
@@ -1148,6 +1323,11 @@
                     return videoField.includes(field);
                 });
             }
+            
+            // Update UI
+            document.querySelectorAll('.filter-item[data-field]').forEach(f => f.classList.remove('active'));
+            document.querySelector('.filter-item[data-field="' + field + '"]').classList.add('active');
+            
             showVideos(filtered);
         }
 
@@ -1183,6 +1363,10 @@
                     });
                     break;
             }
+            
+            // Update UI
+            document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
+            document.querySelector('.filter-item[data-feature="' + feature + '"]').classList.add('active');
             
             showVideos(filtered);
         }
@@ -1325,11 +1509,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded, setting up event listeners...');
             
-            // Test basic click detection
-            document.body.addEventListener('click', function(e) {
-                console.log('Click detected on:', e.target.tagName, e.target.className, e.target.textContent?.substring(0, 20));
-            });
-            
             // Category pills
             document.querySelectorAll('.pill').forEach(function(pill) {
                 pill.addEventListener('click', function() {
@@ -1365,10 +1544,6 @@
                 item.addEventListener('click', function() {
                     console.log('Field filter clicked:', this.getAttribute('data-field'));
                     
-                    // Update UI
-                    document.querySelectorAll('.filter-item[data-field]').forEach(f => f.classList.remove('active'));
-                    this.classList.add('active');
-                    
                     // Apply filter
                     const field = this.getAttribute('data-field');
                     filterByField(field);
@@ -1379,10 +1554,6 @@
             document.querySelectorAll('.filter-item[data-feature]').forEach(function(item) {
                 item.addEventListener('click', function() {
                     console.log('Feature filter clicked:', this.getAttribute('data-feature'));
-                    
-                    // Update UI
-                    document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
-                    this.classList.add('active');
                     
                     // Apply filter
                     const feature = this.getAttribute('data-feature');
