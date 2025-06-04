@@ -34,8 +34,14 @@
             color: #2c5aa0;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
             min-width: 200px;
+        }
+        
+        .logo img {
+            height: 40px;
+            width: auto;
+            object-fit: contain;
         }
         
         .search-container {
@@ -662,7 +668,10 @@
 </head>
 <body>
     <header class="header">
-        <div class="logo">🏛️ BIRS Video Discovery</div>
+        <div class="logo">
+            <img src="static/birs_logo_square.png" alt="BIRS Logo">
+            <span>Video Discovery</span>
+        </div>
         <div class="search-container">
             <input type="text" class="search-input" placeholder="Search research videos..." id="searchInput">
             <button class="search-btn" onclick="performSearch()">🔍</button>
