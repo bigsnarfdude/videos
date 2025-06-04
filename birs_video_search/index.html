@@ -670,7 +670,7 @@
     <header class="header">
         <div class="logo">
             <img src="static/birs_logo_square.png" alt="BIRS Logo">
-            <span>Video Discovery</span>
+            <span>BIRS Video Discovery</span>
         </div>
         <div class="search-container">
             <input type="text" class="search-input" placeholder="Search research videos..." id="searchInput">
@@ -834,6 +834,12 @@
 
         let allVideos = [];
         let fuse = null; // Fuse.js instance for fuzzy search
+        
+        // Infinite scroll variables
+        let currentVideos = []; // Current filtered video list
+        let displayedCount = 0; // Number of videos currently displayed
+        const VIDEOS_PER_PAGE = 30; // Number of videos to load at once
+        let isLoading = false; // Prevent multiple simultaneous loads
 
         async function loadVideos() {
             try {
@@ -1198,12 +1204,18 @@
             return thumbnail;
         }
 
-        function showVideos(videos) {
+        function showVideos(videos, resetScroll = true) {
             const grid = document.getElementById('videoGrid');
             const header = document.getElementById('resultsHeader');
             
+            // Store current video list and reset display count
+            currentVideos = videos;
+            displayedCount = 0;
+            
             document.getElementById('loadingSpinner').style.display = 'none';
-            document.getElementById('resultsText').textContent = 'Showing ' + videos.length + ' of ' + allVideos.length + ' videos';
+            document.getElementById('resultsText').textContent = 'Showing ' + Math.min(VIDEOS_PER_PAGE, videos.length) + ' of ' + videos.length + ' videos';
+            
+            // Clear grid for new results
             grid.innerHTML = '';
             
             if (videos.length === 0) {
@@ -1217,7 +1229,36 @@
                 return;
             }
             
-            videos.forEach(function(video) {
+            // Load first batch of videos
+            loadMoreVideos();
+            
+            // Reset scroll position if requested
+            if (resetScroll) {
+                window.scrollTo(0, 0);
+            }
+        }
+        
+        function loadMoreVideos() {
+            if (isLoading || displayedCount >= currentVideos.length) {
+                return;
+            }
+            
+            isLoading = true;
+            const grid = document.getElementById('videoGrid');
+            
+            // Add loading indicator at the bottom
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'infiniteScrollLoader';
+            loadingDiv.style.cssText = 'grid-column: 1/-1; text-align: center; padding: 40px;';
+            loadingDiv.innerHTML = '<div class="spinner"></div><p style="color: #666; margin-top: 10px;">Loading more videos...</p>';
+            
+            // Calculate videos to load
+            const startIndex = displayedCount;
+            const endIndex = Math.min(displayedCount + VIDEOS_PER_PAGE, currentVideos.length);
+            const videosToLoad = currentVideos.slice(startIndex, endIndex);
+            
+            // Add videos to grid
+            videosToLoad.forEach(function(video) {
                 const card = document.createElement('div');
                 card.className = 'video-card';
                 
@@ -1331,6 +1372,43 @@
                 card.appendChild(content);
                 grid.appendChild(card);
             });
+            
+            // Update displayed count
+            displayedCount = endIndex;
+            
+            // Update header text
+            document.getElementById('resultsText').textContent = 'Showing ' + displayedCount + ' of ' + currentVideos.length + ' videos';
+            
+            // Remove loading indicator
+            setTimeout(function() {
+                const loader = document.getElementById('infiniteScrollLoader');
+                if (loader) {
+                    loader.remove();
+                }
+                isLoading = false;
+                
+                // Check if we need to load more videos immediately (if viewport is not filled)
+                checkAndLoadMore();
+            }, 300); // Small delay for smoother experience
+        }
+        
+        function checkAndLoadMore() {
+            // Check if we should load more videos based on scroll position
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const threshold = document.body.offsetHeight - 800; // Load when 800px from bottom
+            
+            if (scrollPosition >= threshold && displayedCount < currentVideos.length && !isLoading) {
+                // Add loading indicator before loading more
+                const grid = document.getElementById('videoGrid');
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'infiniteScrollLoader';
+                loadingDiv.style.cssText = 'grid-column: 1/-1; text-align: center; padding: 40px;';
+                loadingDiv.innerHTML = '<div class="spinner"></div><p style="color: #666; margin-top: 10px;">Loading more videos...</p>';
+                grid.appendChild(loadingDiv);
+                
+                // Load more videos
+                setTimeout(loadMoreVideos, 100);
+            }
         }
 
         function filterByCategory(category) {
@@ -1828,6 +1906,24 @@
             
             // Load videos
             loadVideos();
+            
+            // Add infinite scroll event listener
+            let scrollTimeout;
+            window.addEventListener('scroll', function() {
+                // Debounce scroll events for better performance
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(function() {
+                    checkAndLoadMore();
+                }, 150);
+            });
+            
+            // Also check on window resize
+            window.addEventListener('resize', function() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(function() {
+                    checkAndLoadMore();
+                }, 250);
+            });
         });
     </script>
 </body>
