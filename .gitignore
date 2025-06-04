@@ -1,1 +1,5 @@
 .DS_Store
+processing/transcriptor.py
+processing/processing_success.json
+processing/rpd_state.json
+processing/summaries/
