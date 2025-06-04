@@ -3,42 +3,1832 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BIRS Video Search</title>
-    <link rel="stylesheet" href="static/style.css">
+    <title>BIRS Video Discovery - Fixed Version</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #ffffff;
+            color: #333;
+            line-height: 1.4;
+        }
+        
+        .header {
+            position: sticky;
+            top: 0;
+            background: #ffffff;
+            padding: 8px 16px;
+            border-bottom: 1px solid #ddd;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: 56px;
+        }
+        
+        .logo {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c5aa0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 200px;
+        }
+        
+        .logo img {
+            height: 40px;
+            width: auto;
+            object-fit: contain;
+        }
+        
+        .search-container {
+            flex: 1;
+            max-width: 600px;
+            display: flex;
+            margin: 0 auto;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 10px 12px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 20px 0 0 20px;
+            color: #333;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        .search-input:focus {
+            border-color: #2c5aa0;
+        }
+        
+        .search-btn {
+            padding: 10px 20px;
+            background: #f8f8f8;
+            border: 1px solid #ccc;
+            border-left: none;
+            border-radius: 0 20px 20px 0;
+            color: #333;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .search-btn:hover {
+            background: #f0f0f0;
+        }
+
+        /* YouTube-style category pills */
+        .category-pills {
+            background: #fff;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .category-pills::-webkit-scrollbar {
+            display: none;
+        }
+
+        .pills-container {
+            display: flex;
+            gap: 12px;
+            padding: 0 24px;
+            min-width: max-content;
+        }
+
+        .pill {
+            background: #f2f2f2;
+            border: 1px solid #d0d0d0;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .pill:hover {
+            background: #e0e0e0;
+        }
+
+        .pill.active {
+            background: #2c5aa0;
+            color: #fff;
+            border-color: #2c5aa0;
+        }
+        
+        .main-container {
+            display: flex;
+            max-width: none;
+            margin: 0;
+            min-height: calc(100vh - 56px);
+        }
+        
+        .sidebar {
+            width: 240px;
+            background: #f8f9fa;
+            padding: 12px 0;
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            position: sticky;
+            top: 56px;
+            border-right: 1px solid #ddd;
+        }
+
+        .nav-section {
+            margin-bottom: 20px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 24px;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.2s;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .nav-item:hover {
+            background: #e3f2fd;
+        }
+
+        .nav-item.active {
+            background: #e3f2fd;
+            color: #2c5aa0;
+            font-weight: 500;
+        }
+
+        .nav-icon {
+            margin-right: 24px;
+            font-size: 16px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .nav-divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 12px 0;
+        }
+
+        .nav-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            padding: 8px 24px;
+            margin-top: 16px;
+        }
+        
+        .filter-section {
+            margin-bottom: 20px;
+            padding: 0 12px;
+        }
+        
+        .filter-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            padding: 8px 12px;
+        }
+        
+        .filter-item {
+            padding: 8px 12px;
+            margin: 2px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #333;
+            transition: all 0.2s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            border-radius: 8px;
+        }
+        
+        .filter-item:hover {
+            background: #e3f2fd;
+        }
+        
+        .filter-item.active {
+            background: #2c5aa0;
+            color: #ffffff;
+        }
+        
+        .filter-count {
+            color: #666;
+            font-size: 12px;
+            background: rgba(0,0,0,0.05);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 400;
+        }
+        
+        .filter-item.active .filter-count {
+            background: rgba(255,255,255,0.3);
+            color: #ffffff;
+        }
+        
+        .content {
+            flex: 1;
+            padding: 24px;
+            background: #ffffff;
+        }
+        
+        .results-header {
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #666;
+            font-weight: 400;
+        }
+        
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+        
+        .video-card {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .video-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .color-card-thumbnail {
+            width: 100%;
+            height: 180px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .formula-overlay {
+            font-size: 2.2rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            font-weight: bold;
+            text-align: center;
+            z-index: 2;
+        }
+        
+        .duration-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+            z-index: 3;
+        }
+        
+        .quality-badges {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            display: flex;
+            gap: 4px;
+            z-index: 3;
+        }
+        
+        .badge {
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .transcript-badge {
+            background: #2c5aa0;
+            color: white;
+        }
+        
+        .ai-badge {
+            background: #1976d2;
+            color: white;
+        }
+        
+        .metadata-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+            color: white;
+            padding: 12px 8px 8px 8px;
+            font-size: 11px;
+            font-weight: 400;
+            z-index: 2;
+        }
+        
+        .card-content {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .relevance-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #4caf50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .relevance-badge.high {
+            background: #4caf50;
+        }
+        
+        .relevance-badge.medium {
+            background: #ff9800;
+        }
+        
+        .relevance-badge.low {
+            background: #f44336;
+        }
+        
+        .card-content h3 {
+            margin: 0 0 8px 0;
+            font-size: 15px;
+            color: #2c5aa0;
+            line-height: 1.3;
+            font-weight: 600;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .card-meta {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        
+        .card-concepts {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        
+        .concept-tag {
+            background: #e3f2fd;
+            color: #2c5aa0;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .card-abstract {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.4;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .match-indicator {
+            font-size: 11px;
+            color: #2c5aa0;
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+        
+        .match-indicator strong {
+            font-weight: 600;
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: auto;
+        }
+        
+        .btn-primary {
+            flex: 1;
+            padding: 10px 16px;
+            text-decoration: none;
+            background-color: #2c5aa0;
+            color: white;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1e3f73;
+        }
+        
+        .btn-secondary {
+            padding: 8px 12px;
+            background-color: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e3f2fd;
+            color: #2c5aa0;
+            border-color: #2c5aa0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.show {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 85vh;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 1.4em;
+        }
+
+        .close {
+            color: #999;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            line-height: 1;
+            background: none;
+            border: none;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 24px;
+            max-height: calc(85vh - 100px);
+            overflow-y: auto;
+        }
+
+        .transcript-text {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .summary-text {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #333;
+            max-width: none;
+        }
+
+        .summary-text h3 {
+            color: #2c5aa0;
+            margin: 24px 0 16px 0;
+            font-size: 1.4em;
+            font-weight: 600;
+            border-bottom: 2px solid #e8f0fe;
+            padding-bottom: 8px;
+        }
+
+        .summary-text h4 {
+            color: #2c5aa0;
+            margin: 20px 0 12px 0;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .summary-text h5 {
+            color: #555;
+            margin: 16px 0 8px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .summary-text p {
+            margin: 12px 0;
+            line-height: 1.6;
+        }
+
+        .summary-text strong {
+            color: #2c5aa0;
+            font-weight: 600;
+        }
+
+        .summary-text em {
+            font-style: italic;
+            color: #666;
+        }
+
+        .summary-text ul {
+            margin: 16px 0;
+            padding-left: 20px;
+        }
+
+        .summary-text li {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+
+        .summary-text code {
+            background-color: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #d73a49;
+        }
+
+        /* Clean up first paragraph */
+        .summary-text p:first-child {
+            margin-top: 0;
+        }
+
+        /* Clean up last element */
+        .summary-text *:last-child {
+            margin-bottom: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+            }
+            
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <!-- Fuse.js for fuzzy search -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
 </head>
 <body>
-    <header>
-        <h1>BIRS Video Lectures</h1>
+    <header class="header">
+        <div class="logo">
+            <img src="static/birs_logo_square.png" alt="BIRS Logo">
+            <span>Video Discovery</span>
+        </div>
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="Search research videos..." id="searchInput">
+            <button class="search-btn" onclick="performSearch()">🔍</button>
+        </div>
     </header>
-    <main>
-        <section id="search-filter-controls">
-            <input type="text" id="search-bar" placeholder="Search lectures by title, speaker, abstract...">
-            <select id="year-filter">
-                <option value="">All Years</option>
-                <!-- Year options will be populated by JavaScript -->
-            </select>
-            <select id="field-filter">
-                <option value="">All Fields</option>
-                <!-- Field options will be populated by JavaScript -->
-            </select>
-            <div id="filter-management-area" style="margin-top: 10px; margin-bottom: 10px;">
-                <button id="clear-all-filters-button" type="button">Clear All Filters</button>
-                <div id="active-filters-display" style="margin-top: 5px;">
-                    <!-- Active filters will be shown here -->
+
+    <!-- YouTube-style category pills -->
+    <div class="category-pills">
+        <div class="pills-container">
+            <button class="pill active" data-category="all">All</button>
+            <button class="pill" data-category="topology">Topology</button>
+            <button class="pill" data-category="statistics">Statistics</button>
+            <button class="pill" data-category="machine-learning">Machine Learning</button>
+            <button class="pill" data-category="genetics">Genetics</button>
+            <button class="pill" data-category="analysis">Analysis</button>
+            <button class="pill" data-category="algebra">Algebra</button>
+            <button class="pill" data-category="geometry">Geometry</button>
+            <button class="pill" data-category="probability">Probability</button>
+            <button class="pill" data-category="optimization">Optimization</button>
+            <button class="pill" data-category="computation">Computation</button>
+            <button class="pill" data-category="biology">Biology</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <!-- Main Navigation -->
+            <div class="nav-section">
+                <button class="nav-item active" data-view="home">
+                    <span class="nav-icon">🏠</span>
+                    Home
+                </button>
+                <button class="nav-item" data-view="recent">
+                    <span class="nav-icon">🕒</span>
+                    Recent
+                </button>
+                <button class="nav-item" data-view="popular">
+                    <span class="nav-icon">🔥</span>
+                    Trending
+                </button>
+                <button class="nav-item" data-view="transcripts">
+                    <span class="nav-icon">📝</span>
+                    With Transcripts
+                </button>
+                <button class="nav-item" data-view="summaries">
+                    <span class="nav-icon">🤖</span>
+                    AI Summaries
+                </button>
+            </div>
+
+            <div class="nav-divider"></div>
+
+            <!-- Research Fields -->
+            <div class="nav-header">Research Fields</div>
+            <div class="filter-section">
+                <button class="filter-item active" data-field="all">
+                    <span>All Fields</span>
+                    <span class="filter-count" id="count-all">0</span>
+                </button>
+                <button class="filter-item" data-field="Algebraic Topology">
+                    <span>Algebraic Topology</span>
+                    <span class="filter-count" id="count-topology">0</span>
+                </button>
+                <button class="filter-item" data-field="Applied Statistics">
+                    <span>Applied Statistics</span>
+                    <span class="filter-count" id="count-stats">0</span>
+                </button>
+                <button class="filter-item" data-field="Machine Learning">
+                    <span>Machine Learning</span>
+                    <span class="filter-count" id="count-ml">0</span>
+                </button>
+                <button class="filter-item" data-field="Genetics">
+                    <span>Genetics/Genomics</span>
+                    <span class="filter-count" id="count-genetics">0</span>
+                </button>
+            </div>
+
+            <div class="nav-divider"></div>
+
+            <!-- Workshop Years -->
+            <div class="nav-header">Workshop Years</div>
+            <div class="filter-section" id="yearFilters">
+                <!-- Will be populated dynamically -->
+            </div>
+
+            <div class="nav-divider"></div>
+
+            <!-- Content Types -->
+            <div class="nav-header">Content Features</div>
+            <div class="filter-section">
+                <button class="filter-item" data-feature="enhanced">
+                    <span>🌟 Fully Enhanced</span>
+                    <span class="filter-count" id="count-enhanced">0</span>
+                </button>
+                <button class="filter-item" data-feature="transcript">
+                    <span>📝 Has Transcript</span>
+                    <span class="filter-count" id="count-transcript">0</span>
+                </button>
+                <button class="filter-item" data-feature="summary">
+                    <span>🤖 Has AI Summary</span>
+                    <span class="filter-count" id="count-summary">0</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="content">
+            <div class="results-header" id="resultsHeader">
+                <span id="resultsText">Loading videos...</span>
+                <div id="loadingSpinner" style="display: inline-block; margin-left: 10px;">
+                    <style>
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                        .spinner {
+                            display: inline-block;
+                            width: 16px;
+                            height: 16px;
+                            border: 2px solid #f3f3f3;
+                            border-top: 2px solid #2c5aa0;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        }
+                    </style>
+                    <div class="spinner"></div>
                 </div>
             </div>
-            <p id="search-results-count" style="margin-bottom: 10px;">
-                <!-- Search results count will be shown here -->
-            </p>
-        </section>
-        <section id="video-grid">
-            <p id="loading-indicator" style="display: none;">Loading videos...</p>
-            <!-- Videos will be loaded here by JavaScript -->
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2024 BIRS</p>
-    </footer>
-    <script src="static/search-enhanced.js"></script>
+            <div class="video-grid" id="videoGrid">
+                <!-- Videos will be populated here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for transcript/summary -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Content</h2>
+                <button class="close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const FIELD_COLORS = {
+            "Algebraic Topology": "linear-gradient(135deg, #2c5aa0, #1e3f73)",
+            "Applied Statistics": "linear-gradient(135deg, #f093fb, #f5576c)", 
+            "Biostatistics": "linear-gradient(135deg, #f093fb, #f5576c)",
+            "Machine Learning": "linear-gradient(135deg, #4facfe, #00f2fe)",
+            "Artificial Intelligence": "linear-gradient(135deg, #4facfe, #00f2fe)",
+            "Genetics": "linear-gradient(135deg, #ff6b6b, #ee5a24)",
+            "Genomics": "linear-gradient(135deg, #ff6b6b, #ee5a24)",
+            "Genetic Epidemiology": "linear-gradient(135deg, #ff6b6b, #ee5a24)",
+            "Public Health": "linear-gradient(135deg, #a29bfe, #6c5ce7)",
+            "Mathematics": "linear-gradient(135deg, #2c5aa0, #1e3f73)"
+        };
+
+        let allVideos = [];
+        let fuse = null; // Fuse.js instance for fuzzy search
+
+        async function loadVideos() {
+            try {
+                console.log("Loading videos from static/videos.json...");
+                document.getElementById('resultsText').textContent = "Loading videos from static/videos.json...";
+                document.getElementById('loadingSpinner').style.display = 'inline-block';
+                
+                let data;
+                try {
+                    const response = await fetch("static/videos.json");
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    data = await response.json();
+                } catch (fetchError) {
+                    console.log("Could not load videos.json, using sample data");
+                    // Return empty array if videos.json is not available
+                    console.error("Failed to load videos.json:", fetchError);
+                    throw new Error(`Failed to load video data: ${fetchError.message}`);
+                }
+                
+                console.log("Parsing video data...");
+                document.getElementById('resultsText').textContent = "Parsing video data...";
+                
+                allVideos = Array.isArray(data) ? data : [data];
+                
+                console.log(`Raw data loaded: ${allVideos.length} videos`);
+                document.getElementById('resultsText').textContent = "Processing video metadata...";
+                
+                allVideos = allVideos.map(normalizeVideo);
+                
+                console.log(`Successfully processed ${allVideos.length} videos`);
+                
+                // Initialize Fuse.js for fuzzy search
+                initializeFuzzySearch();
+                
+                populateYearFilters();
+                addYearFilterListeners();
+                updateFilterCounts();
+                showVideos(allVideos);
+                
+            } catch (error) {
+                console.error("Error loading videos:", error);
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('resultsText').textContent = "Error loading videos";
+                document.getElementById('videoGrid').innerHTML = 
+                    '<div style="grid-column: 1/-1; text-align: center; padding: 40px;">' +
+                    '<h3>⚠️ Unable to Load Videos</h3>' +
+                    '<p style="color: #666; margin: 20px 0;">We encountered an error while loading the video data.</p>' +
+                    '<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; margin: 20px auto; max-width: 500px; text-align: left;">' +
+                    '<p style="margin: 0 0 10px 0; font-size: 14px;"><strong>Error details:</strong></p>' +
+                    '<code style="color: #dc3545; font-size: 13px;">' + error.message + '</code>' +
+                    '</div>' +
+                    '<p style="color: #666; margin: 20px 0; font-size: 14px;">This might be due to:</p>' +
+                    '<ul style="text-align: left; display: inline-block; color: #666; font-size: 14px;">' +
+                    '<li>The video data file is missing or corrupted</li>' +
+                    '<li>Network connectivity issues</li>' +
+                    '<li>The server is temporarily unavailable</li>' +
+                    '</ul>' +
+                    '<div style="margin-top: 20px;">' +
+                    '<button onclick="loadVideos()" style="padding: 12px 24px; background: #2c5aa0; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-right: 10px;">' +
+                    '🔄 Try Again</button>' +
+                    '<button onclick="window.location.reload()" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">' +
+                    '↻ Reload Page</button>' +
+                    '</div></div>';
+            }
+        }
+
+        function normalizeVideo(video) {
+            // Get the original summary text
+            let originalSummary = video.summary_text || video.summary || "No summary available";
+            
+            let cleanAbstract = "No summary available";
+            
+            // Look for the actual descriptive paragraph that starts with "This lecture" or similar
+            const descriptiveParagraphs = [
+                /This lecture (delves into|presents|focuses on|explores)[^.]*\.[^.]*\.[^.]*/,
+                /The lecture (delves into|presents|focuses on|explores)[^.]*\.[^.]*\.[^.]*/,
+                /This (lecture|talk|presentation) (delves into|presents|focuses on|explores)[^.]*\.[^.]*\.[^.]*/
+            ];
+            
+            for (let pattern of descriptiveParagraphs) {
+                const match = originalSummary.match(pattern);
+                if (match) {
+                    cleanAbstract = match[0]
+                        .replace(/\*\*(.*?)\*\*/g, '$1')
+                        .replace(/\*(.*?)\*/g, '$1')
+                        .trim();
+                    break;
+                }
+            }
+            
+            // If no descriptive paragraph found, try to extract from detailed summary section
+            if (cleanAbstract === "No summary available" && originalSummary.includes('## **Detailed Summary**')) {
+                const detailedStart = originalSummary.indexOf('## **Detailed Summary**');
+                let detailedContent = originalSummary.substring(detailedStart + 25);
+                
+                // Find the end of the detailed summary (before Prerequisites)
+                const detailedEnd = detailedContent.indexOf('## **Prerequisites');
+                if (detailedEnd > 0) {
+                    detailedContent = detailedContent.substring(0, detailedEnd);
+                }
+                
+                // Look for the first substantial paragraph (not bullet points or structured content)
+                const paragraphs = detailedContent.split('\n\n');
+                for (let paragraph of paragraphs) {
+                    const cleaned = paragraph
+                        .replace(/\*\*(.*?)\*\*/g, '$1')
+                        .replace(/\*(.*?)\*/g, '$1')
+                        .replace(/#+\s*/g, '')
+                        .replace(/^- /gm, '')
+                        .replace(/\n/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    // Check if this looks like a good descriptive paragraph
+                    if (cleaned.length > 100 && 
+                        !cleaned.includes(':') && 
+                        !cleaned.includes('Theorems/Results') &&
+                        !cleaned.includes('Mathematical Objects') &&
+                        !cleaned.includes('Primary Field') &&
+                        cleaned.match(/^[A-Z]/)) {
+                        cleanAbstract = cleaned;
+                        break;
+                    }
+                }
+            }
+            
+            // Final fallback: create a simple description
+            if (cleanAbstract === "No summary available" || cleanAbstract.length < 50) {
+                const field = (video.metadata && video.metadata.primary_field) || "Mathematics";
+                const title = video.suggested_title || video.filename || "research topic";
+                cleanAbstract = `A research lecture in ${field} on ${title.toLowerCase()} presented by ${video.speaker || 'a researcher'}.`;
+            }
+
+            return {
+                id: video.id || 'video-' + Math.random().toString(36).substr(2, 9),
+                title: video.suggested_title || video.filename || "Untitled Lecture",
+                speaker: {
+                    name: video.speaker || "Unknown Speaker"
+                },
+                workshop: {
+                    year: extractYearFromDate(video.date || "")
+                },
+                content: {
+                    field: (video.metadata && video.metadata.primary_field) || "Mathematics",
+                    concepts: (video.metadata && video.metadata.concepts) || [],
+                    abstract: truncateText(cleanAbstract, 300)
+                },
+                files: {
+                    video_url: video.video_url || ""
+                },
+                enhanced: {
+                    has_transcript: !!video.transcript,
+                    has_summary: !!(video.summary_text || video.summary)
+                },
+                transcript: video.transcript || "",
+                summary_text: video.summary_text || video.summary || "",
+                file_size: video.file_size
+            };
+        }
+
+        function extractYearFromDate(dateStr) {
+            if (dateStr) {
+                try {
+                    return parseInt(dateStr.substring(0, 4));
+                } catch (e) {
+                    return new Date().getFullYear();
+                }
+            }
+            return new Date().getFullYear();
+        }
+
+        function truncateText(text, maxLength) {
+            if (!text) return "No description available";
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + "...";
+        }
+
+        function populateYearFilters() {
+            const years = [...new Set(allVideos.map(v => v.workshop.year))].sort((a,b) => b-a);
+            const yearFiltersContainer = document.getElementById('yearFilters');
+            
+            yearFiltersContainer.innerHTML = '';
+            
+            // Add "All Years" option
+            const allYearsBtn = document.createElement('button');
+            allYearsBtn.className = 'filter-item active';
+            allYearsBtn.setAttribute('data-year', 'all');
+            allYearsBtn.innerHTML = `
+                <span>All Years</span>
+                <span class="filter-count">${allVideos.length}</span>
+            `;
+            yearFiltersContainer.appendChild(allYearsBtn);
+            
+            // Add individual year options
+            years.forEach(year => {
+                const yearBtn = document.createElement('button');
+                yearBtn.className = 'filter-item';
+                yearBtn.setAttribute('data-year', year);
+                const count = allVideos.filter(v => v.workshop.year === year).length;
+                yearBtn.innerHTML = `
+                    <span>${year}</span>
+                    <span class="filter-count">${count}</span>
+                `;
+                yearFiltersContainer.appendChild(yearBtn);
+            });
+        }
+
+        function addYearFilterListeners() {
+            const yearItems = document.querySelectorAll('#yearFilters .filter-item');
+            console.log('Adding event listeners to', yearItems.length, 'year filter items');
+            yearItems.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    console.log('Year filter clicked:', this.getAttribute('data-year'));
+                    
+                    // Update UI
+                    document.querySelectorAll('#yearFilters .filter-item').forEach(y => y.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Apply filter
+                    const year = this.getAttribute('data-year');
+                    filterByYear(year === 'all' ? 'all' : parseInt(year));
+                });
+            });
+        }
+
+        function calculateDuration(video) {
+            // Check if video has actual duration field
+            if (video.duration) {
+                return video.duration;
+            }
+            
+            // Check if video has duration in minutes
+            if (video.duration_minutes) {
+                return video.duration_minutes + ' min';
+            }
+            
+            // Look for file_size in the original video data or the normalized video
+            const fileSize = video.file_size || (video.files && video.files.file_size);
+            
+            // Estimate duration from file size (very rough approximation)
+            // Academic lectures are typically 30-90 minutes
+            if (fileSize) {
+                const sizeStr = fileSize.toString().toUpperCase();
+                if (sizeStr.includes('M')) {
+                    const sizeMB = parseInt(sizeStr.replace('M', ''));
+                    if (sizeMB >= 300) return '75+ min';
+                    if (sizeMB >= 200) return '60-75 min';
+                    if (sizeMB >= 100) return '45-60 min';
+                    if (sizeMB >= 50) return '30-45 min';
+                    if (sizeMB >= 25) return '20-30 min';
+                    return '< 20 min';
+                } else if (sizeStr.includes('G')) {
+                    const sizeGB = parseFloat(sizeStr.replace('G', ''));
+                    if (sizeGB >= 1) return '90+ min';
+                    return '75+ min';
+                }
+            }
+            
+            return null;
+        }
+
+        function getFieldColor(field) {
+            if (!field) return FIELD_COLORS["Mathematics"];
+            
+            for (let key in FIELD_COLORS) {
+                if (field.includes(key)) {
+                    return FIELD_COLORS[key];
+                }
+            }
+            
+            return FIELD_COLORS["Mathematics"];
+        }
+
+        function getFormula(field, concepts) {
+            if (concepts && concepts.length > 0) {
+                const concept = concepts[0];
+                if (concept.includes("Hill-Hopkins")) return "H*(X;k)";
+                if (concept.includes("TWAS") || concept.includes("Gene")) return "Σ(x-μ)²";
+                if (concept.includes("Cancer") || concept.includes("GWAS")) return "P(G|D)";
+                if (concept.includes("Deep Learning")) return "∇L(θ)";
+            }
+            
+            if (field) {
+                if (field.includes("Topology")) return "H*(X)";
+                if (field.includes("Statistics")) return "Σ(x-μ)²";
+                if (field.includes("Machine Learning")) return "∇L(θ)";
+                if (field.includes("Genetics")) return "P(G|D)";
+            }
+            
+            return "∃!x ∈ ℝ";
+        }
+
+        function createThumbnail(video) {
+            const gradient = getFieldColor((video.content && video.content.field) || 'Mathematics');
+            const formula = getFormula((video.content && video.content.field), (video.content && video.content.concepts));
+            
+            const thumbnail = document.createElement('div');
+            thumbnail.className = 'color-card-thumbnail';
+            thumbnail.style.background = gradient;
+            
+            const formulaDiv = document.createElement('div');
+            formulaDiv.className = 'formula-overlay';
+            formulaDiv.textContent = formula;
+            thumbnail.appendChild(formulaDiv);
+            
+            // Add duration badge only if we can determine duration
+            const duration = calculateDuration(video);
+            if (duration) {
+                const durationBadge = document.createElement('div');
+                durationBadge.className = 'duration-badge';
+                durationBadge.textContent = duration;
+                thumbnail.appendChild(durationBadge);
+            }
+            
+            const qualityBadges = document.createElement('div');
+            qualityBadges.className = 'quality-badges';
+            
+            if (video.enhanced && video.enhanced.has_transcript) {
+                const badge = document.createElement('span');
+                badge.className = 'badge transcript-badge';
+                badge.textContent = 'CC';
+                qualityBadges.appendChild(badge);
+            }
+            
+            if (video.enhanced && video.enhanced.has_summary) {
+                const badge = document.createElement('span');
+                badge.className = 'badge ai-badge';
+                badge.textContent = 'AI';
+                qualityBadges.appendChild(badge);
+            }
+            
+            thumbnail.appendChild(qualityBadges);
+            
+            // Add relevance badge if this is a search result
+            if (video._searchRelevance !== undefined) {
+                const relevanceBadge = document.createElement('div');
+                relevanceBadge.className = 'relevance-badge';
+                
+                // Determine relevance level and style
+                if (video._searchRelevance >= 80) {
+                    relevanceBadge.classList.add('high');
+                } else if (video._searchRelevance >= 60) {
+                    relevanceBadge.classList.add('medium');
+                } else {
+                    relevanceBadge.classList.add('low');
+                }
+                
+                relevanceBadge.innerHTML = `⭐ ${video._searchRelevance}% match`;
+                thumbnail.appendChild(relevanceBadge);
+            }
+            
+            const metadataOverlay = document.createElement('div');
+            metadataOverlay.className = 'metadata-overlay';
+            const field = (video.content && video.content.field) || 'Mathematics';
+            const speaker = (video.speaker && video.speaker.name) || 'Unknown';
+            const year = (video.workshop && video.workshop.year) || 'Unknown';
+            metadataOverlay.textContent = field + ' • ' + speaker + ' • ' + year;
+            thumbnail.appendChild(metadataOverlay);
+            
+            return thumbnail;
+        }
+
+        function showVideos(videos) {
+            const grid = document.getElementById('videoGrid');
+            const header = document.getElementById('resultsHeader');
+            
+            document.getElementById('loadingSpinner').style.display = 'none';
+            document.getElementById('resultsText').textContent = 'Showing ' + videos.length + ' of ' + allVideos.length + ' videos';
+            grid.innerHTML = '';
+            
+            if (videos.length === 0) {
+                grid.innerHTML = 
+                    '<div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">' +
+                    '<h3 style="color: #666; margin-bottom: 20px;">No Videos Found</h3>' +
+                    '<p style="color: #666; margin-bottom: 30px;">Try adjusting your search criteria or filters.</p>' +
+                    '<button onclick="clearAllFilters()" style="padding: 10px 20px; background: #2c5aa0; color: white; border: none; border-radius: 6px; cursor: pointer;">' +
+                    'Clear All Filters</button>' +
+                    '</div>';
+                return;
+            }
+            
+            videos.forEach(function(video) {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                
+                const thumbnail = createThumbnail(video);
+                card.appendChild(thumbnail);
+                
+                const content = document.createElement('div');
+                content.className = 'card-content';
+                
+                const title = document.createElement('h3');
+                title.textContent = video.title || 'Untitled';
+                content.appendChild(title);
+                
+                const meta = document.createElement('div');
+                meta.className = 'card-meta';
+                const speakerName = (video.speaker && video.speaker.name) || 'Unknown Speaker';
+                const year = (video.workshop && video.workshop.year) || 'Unknown';
+                meta.innerHTML = '<strong>Speaker:</strong> ' + speakerName + ' • <strong>Year:</strong> ' + year;
+                content.appendChild(meta);
+                
+                const conceptsDiv = document.createElement('div');
+                conceptsDiv.className = 'card-concepts';
+                const concepts = (video.content && video.content.concepts) || [];
+                
+                // Filter and clean up concepts for display
+                const cleanConcepts = concepts
+                    .filter(function(concept) {
+                        // Skip section headers and very long items
+                        return concept && 
+                               !concept.startsWith('**') && 
+                               !concept.includes('Theorems/Results') &&
+                               !concept.includes('Mathematical Objects') &&
+                               !concept.includes('Techniques/Methods') &&
+                               !concept.includes('Formulas/Equations') &&
+                               concept.length < 100;
+                    })
+                    .map(function(concept) {
+                        // Clean up the concept text
+                        return concept
+                            .replace(/\*\*(.*?)\*\*/g, '$1')
+                            .replace(/\*(.*?)\*/g, '$1')
+                            .replace(/^- /, '')
+                            .trim();
+                    })
+                    .filter(function(concept) {
+                        return concept.length > 0 && concept.length < 80;
+                    });
+                
+                // If no clean concepts, use some basic ones from the field
+                const displayConcepts = cleanConcepts.length > 0 ? cleanConcepts : 
+                    [(video.content && video.content.field) || 'Mathematics'];
+                
+                displayConcepts.slice(0, 3).forEach(function(concept) {
+                    const tag = document.createElement('span');
+                    tag.className = 'concept-tag';
+                    tag.textContent = concept;
+                    conceptsDiv.appendChild(tag);
+                });
+                content.appendChild(conceptsDiv);
+                
+                // Show which fields matched if this is a search result
+                if (video._matchedFields && video._matchedFields.length > 0) {
+                    const matchIndicator = document.createElement('div');
+                    matchIndicator.className = 'match-indicator';
+                    const fieldNames = video._matchedFields.map(field => {
+                        switch(field) {
+                            case 'name': return 'speaker';
+                            case 'concepts': return 'concepts';
+                            case 'abstract': return 'description';
+                            case 'transcript': return 'transcript';
+                            case 'summary_text': return 'AI summary';
+                            default: return field;
+                        }
+                    });
+                    matchIndicator.innerHTML = `<strong>Matched in:</strong> ${fieldNames.join(', ')}`;
+                    content.appendChild(matchIndicator);
+                }
+                
+                const abstract = document.createElement('div');
+                abstract.className = 'card-abstract';
+                abstract.textContent = (video.content && video.content.abstract) || 'No description available';
+                content.appendChild(abstract);
+                
+                const actions = document.createElement('div');
+                actions.className = 'card-actions';
+                
+                const watchBtn = document.createElement('a');
+                watchBtn.href = (video.files && video.files.video_url) || '#';
+                watchBtn.target = '_blank';
+                watchBtn.className = 'btn-primary';
+                watchBtn.textContent = 'Watch Video';
+                actions.appendChild(watchBtn);
+                
+                if (video.enhanced && video.enhanced.has_transcript) {
+                    const transcriptBtn = document.createElement('button');
+                    transcriptBtn.className = 'btn-secondary';
+                    transcriptBtn.textContent = 'Transcript';
+                    transcriptBtn.onclick = function() { showTranscriptModal(video); };
+                    actions.appendChild(transcriptBtn);
+                }
+                
+                if (video.enhanced && video.enhanced.has_summary) {
+                    const summaryBtn = document.createElement('button');
+                    summaryBtn.className = 'btn-secondary';
+                    summaryBtn.textContent = 'Summary';
+                    summaryBtn.onclick = function() { showSummaryModal(video); };
+                    actions.appendChild(summaryBtn);
+                }
+                
+                content.appendChild(actions);
+                card.appendChild(content);
+                grid.appendChild(card);
+            });
+        }
+
+        function filterByCategory(category) {
+            console.log('Filtering by category:', category);
+            let filtered = allVideos;
+            
+            if (category !== 'all') {
+                filtered = allVideos.filter(function(video) {
+                    const field = (video.content && video.content.field) || '';
+                    const concepts = (video.content && video.content.concepts) || [];
+                    
+                    switch(category) {
+                        case 'topology':
+                            return field.toLowerCase().includes('topology') || 
+                                   concepts.some(c => c.toLowerCase().includes('topology'));
+                        case 'statistics':
+                            return field.toLowerCase().includes('statistics') || field.toLowerCase().includes('biostatistics') ||
+                                   concepts.some(c => c.toLowerCase().includes('statistics'));
+                        case 'machine-learning':
+                            return field.toLowerCase().includes('machine learning') || field.toLowerCase().includes('artificial intelligence') ||
+                                   concepts.some(c => c.toLowerCase().includes('machine learning') || c.toLowerCase().includes('ai'));
+                        case 'genetics':
+                            return field.toLowerCase().includes('genetics') || field.toLowerCase().includes('genomics') ||
+                                   concepts.some(c => c.toLowerCase().includes('genetic') || c.toLowerCase().includes('genomic'));
+                        case 'analysis':
+                            return field.toLowerCase().includes('analysis') ||
+                                   concepts.some(c => c.toLowerCase().includes('analysis'));
+                        case 'algebra':
+                            return field.toLowerCase().includes('algebra') ||
+                                   concepts.some(c => c.toLowerCase().includes('algebra'));
+                        case 'geometry':
+                            return field.toLowerCase().includes('geometry') ||
+                                   concepts.some(c => c.toLowerCase().includes('geometry'));
+                        case 'probability':
+                            return field.toLowerCase().includes('probability') ||
+                                   concepts.some(c => c.toLowerCase().includes('probability'));
+                        case 'optimization':
+                            return field.toLowerCase().includes('optimization') ||
+                                   concepts.some(c => c.toLowerCase().includes('optimization'));
+                        case 'computation':
+                            return field.toLowerCase().includes('computation') || field.toLowerCase().includes('computational') ||
+                                   concepts.some(c => c.toLowerCase().includes('computation'));
+                        case 'biology':
+                            return field.toLowerCase().includes('biology') || field.toLowerCase().includes('health') ||
+                                   concepts.some(c => c.toLowerCase().includes('biology') || c.toLowerCase().includes('health'));
+                        default:
+                            return true;
+                    }
+                });
+            }
+            
+            showVideos(filtered);
+        }
+
+        function filterByView(view) {
+            console.log('Filtering by view:', view);
+            let filtered = allVideos;
+            
+            switch(view) {
+                case 'recent':
+                    filtered = [...allVideos].sort(function(a, b) {
+                        const yearA = (a.workshop && a.workshop.year) || 0;
+                        const yearB = (b.workshop && b.workshop.year) || 0;
+                        return yearB - yearA;
+                    });
+                    break;
+                case 'popular':
+                    filtered = [...allVideos].sort(() => Math.random() - 0.5);
+                    break;
+                case 'transcripts':
+                    filtered = allVideos.filter(function(video) {
+                        return video.enhanced && video.enhanced.has_transcript;
+                    });
+                    break;
+                case 'summaries':
+                    filtered = allVideos.filter(function(video) {
+                        return video.enhanced && video.enhanced.has_summary;
+                    });
+                    break;
+                case 'home':
+                default:
+                    filtered = allVideos;
+                    break;
+            }
+            
+            showVideos(filtered);
+        }
+
+        function filterByField(field) {
+            console.log('Filtering by field:', field);
+            let filtered = allVideos;
+            if (field !== 'all') {
+                filtered = allVideos.filter(function(video) {
+                    const videoField = (video.content && video.content.field) || '';
+                    return videoField.includes(field);
+                });
+            }
+            
+            // Update UI
+            document.querySelectorAll('.filter-item[data-field]').forEach(f => f.classList.remove('active'));
+            document.querySelector('.filter-item[data-field="' + field + '"]').classList.add('active');
+            
+            showVideos(filtered);
+        }
+
+        function filterByYear(year) {
+            console.log('Filtering by year:', year);
+            let filtered = allVideos;
+            if (year !== 'all') {
+                filtered = allVideos.filter(function(video) {
+                    return (video.workshop && video.workshop.year) === year;
+                });
+            }
+            showVideos(filtered);
+        }
+
+        function filterByFeature(feature) {
+            console.log('Filtering by feature:', feature);
+            let filtered = allVideos;
+            
+            switch(feature) {
+                case 'enhanced':
+                    filtered = allVideos.filter(function(video) {
+                        return video.enhanced && video.enhanced.has_transcript && video.enhanced.has_summary;
+                    });
+                    break;
+                case 'transcript':
+                    filtered = allVideos.filter(function(video) {
+                        return video.enhanced && video.enhanced.has_transcript;
+                    });
+                    break;
+                case 'summary':
+                    filtered = allVideos.filter(function(video) {
+                        return video.enhanced && video.enhanced.has_summary;
+                    });
+                    break;
+            }
+            
+            // Update UI
+            document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
+            document.querySelector('.filter-item[data-feature="' + feature + '"]').classList.add('active');
+            
+            showVideos(filtered);
+        }
+
+        function initializeFuzzySearch() {
+            // Configure Fuse.js options
+            const fuseOptions = {
+                keys: [
+                    { name: 'title', weight: 0.3 },
+                    { name: 'speaker.name', weight: 0.2 },
+                    { name: 'content.field', weight: 0.15 },
+                    { name: 'content.abstract', weight: 0.15 },
+                    { name: 'content.concepts', weight: 0.1 },
+                    { name: 'transcript', weight: 0.05 },
+                    { name: 'summary_text', weight: 0.05 }
+                ],
+                includeScore: true,
+                includeMatches: true, // Include which fields matched
+                threshold: 0.3, // Lower threshold for better exact matches
+                location: 0, // At what location in the string to look for the pattern
+                distance: 1000, // Increase distance to not penalize matches in longer fields
+                minMatchCharLength: 2,
+                shouldSort: true,
+                findAllMatches: true,
+                ignoreLocation: true, // Ignore location to find matches anywhere in the field
+                useExtendedSearch: false,
+                // Fine-tune the scoring
+                ignoreFieldNorm: false, // Consider field length in scoring
+                getFn: (obj, path) => {
+                    const value = path.reduce((obj, key) => obj ? obj[key] : null, obj);
+                    if (!value) return '';
+                    if (Array.isArray(value)) return value.join(' ');
+                    return value.toString();
+                }
+            };
+            
+            // Create Fuse instance
+            fuse = new Fuse(allVideos, fuseOptions);
+            console.log('Fuse.js initialized with', allVideos.length, 'videos');
+        }
+
+        function updateFilterCounts() {
+            document.getElementById('count-all').textContent = allVideos.length;
+            
+            // Count enhanced videos
+            const enhancedCount = allVideos.filter(v => v.enhanced.has_transcript && v.enhanced.has_summary).length;
+            const transcriptCount = allVideos.filter(v => v.enhanced.has_transcript).length;
+            const summaryCount = allVideos.filter(v => v.enhanced.has_summary).length;
+            
+            document.getElementById('count-enhanced').textContent = enhancedCount;
+            document.getElementById('count-transcript').textContent = transcriptCount;
+            document.getElementById('count-summary').textContent = summaryCount;
+            
+            let topologyCount = 0;
+            let statsCount = 0;
+            let mlCount = 0;
+            let geneticsCount = 0;
+            
+            allVideos.forEach(function(v) {
+                const field = (v.content && v.content.field) || '';
+                if (field.includes('Topology')) topologyCount++;
+                if (field.includes('Statistics') || field.includes('Biostatistics')) statsCount++;
+                if (field.includes('Machine Learning') || field.includes('Artificial Intelligence')) mlCount++;
+                if (field.includes('Genetics') || field.includes('Genomics')) geneticsCount++;
+            });
+            
+            document.getElementById('count-topology').textContent = topologyCount;
+            document.getElementById('count-stats').textContent = statsCount;
+            document.getElementById('count-ml').textContent = mlCount;
+            document.getElementById('count-genetics').textContent = geneticsCount;
+        }
+
+        function performSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            console.log('Performing search for:', searchTerm);
+            
+            let filtered = allVideos;
+            
+            if (searchTerm && fuse) {
+                // Use Fuse.js for fuzzy search
+                const searchResults = fuse.search(searchTerm);
+                console.log(`Found ${searchResults.length} fuzzy matches for "${searchTerm}"`);
+                
+                // Extract the actual video objects from search results
+                // and store the score for potential use
+                filtered = searchResults.map(result => {
+                    // Add search score to video object for ranking display
+                    const video = { ...result.item };
+                    video._searchScore = result.score;
+                    
+                    // Calculate base relevance from Fuse.js score
+                    let baseRelevance = (1 - result.score) * 100;
+                    
+                    // Count unique fields that matched
+                    const matchedFields = new Set();
+                    if (result.matches) {
+                        result.matches.forEach(match => {
+                            const keyParts = match.key.split('.');
+                            const fieldName = keyParts[keyParts.length - 1];
+                            matchedFields.add(fieldName);
+                        });
+                    }
+                    
+                    // Calculate relevance with multiple factors
+                    let relevance = baseRelevance;
+                    
+                    // 1. Boost for multiple field matches (compound relevance)
+                    const fieldCount = matchedFields.size;
+                    if (fieldCount > 1) {
+                        // Each additional field adds to confidence
+                        const multiFieldBoost = Math.min(fieldCount * 8, 30); // Cap at 30% boost
+                        relevance = Math.min(relevance + multiFieldBoost, 95);
+                    }
+                    
+                    // Debug logging
+                    if (fieldCount >= 3) {
+                        console.log(`Video "${video.title}" - Base: ${baseRelevance.toFixed(1)}%, Fields: ${fieldCount}, Boosted: ${relevance.toFixed(1)}%`);
+                    }
+                    
+                    // 2. Check for exact matches in high-priority fields
+                    const searchLower = searchTerm.toLowerCase();
+                    let hasExactMatch = false;
+                    
+                    if (video.title && video.title.toLowerCase().includes(searchLower)) {
+                        relevance = Math.max(relevance, 90); // Title exact match
+                        hasExactMatch = true;
+                    }
+                    if (video.speaker && video.speaker.name && 
+                        video.speaker.name.toLowerCase().includes(searchLower)) {
+                        relevance = Math.max(relevance, 85); // Speaker exact match
+                        hasExactMatch = true;
+                    }
+                    if (video.content && video.content.field && 
+                        video.content.field.toLowerCase().includes(searchLower)) {
+                        relevance = Math.max(relevance, 80); // Field exact match
+                        hasExactMatch = true;
+                    }
+                    
+                    // 3. If we have exact matches AND multiple fields, boost even more
+                    if (hasExactMatch && fieldCount >= 3) {
+                        relevance = Math.max(relevance, 92);
+                    }
+                    
+                    // 4. Super boost for matching in ALL major fields (5+ fields)
+                    if (fieldCount >= 5) {
+                        relevance = Math.max(relevance, 88);
+                    }
+                    
+                    // Cap at 98% (reserve 99-100% for perfect matches)
+                    video._searchRelevance = Math.min(Math.round(relevance), 98);
+                    
+                    // Store which fields matched for highlighting
+                    if (result.matches) {
+                        video._matchedFields = Array.from(matchedFields);
+                    }
+                    
+                    return video;
+                });
+                
+                // If fuzzy search returns no results, show a message
+                if (filtered.length === 0) {
+                    console.log('No fuzzy matches found, trying exact match fallback...');
+                    // Fallback to exact match for very specific searches
+                    const searchLower = searchTerm.toLowerCase();
+                    filtered = allVideos.filter(function(video) {
+                        const titleMatch = (video.title || '').toLowerCase().includes(searchLower);
+                        const speakerMatch = ((video.speaker && video.speaker.name) || '').toLowerCase().includes(searchLower);
+                        return titleMatch || speakerMatch;
+                    });
+                }
+            }
+            
+            showVideos(filtered);
+        }
+
+        function showTranscriptModal(video) {
+            if (video && video.transcript) {
+                document.getElementById('modalTitle').textContent = 'Transcript: ' + video.title;
+                const modalBody = document.getElementById('modalBody');
+                modalBody.innerHTML = '';
+                
+                const transcriptDiv = document.createElement('div');
+                transcriptDiv.className = 'transcript-text';
+                transcriptDiv.textContent = video.transcript;
+                modalBody.appendChild(transcriptDiv);
+                
+                document.getElementById('modal').classList.add('show');
+            } else {
+                alert('Transcript not available for this video.');
+            }
+        }
+
+        function showSummaryModal(video) {
+            if (video && video.summary_text) {
+                document.getElementById('modalTitle').textContent = 'AI Summary: ' + video.title;
+                const modalBody = document.getElementById('modalBody');
+                modalBody.innerHTML = '';
+                
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'summary-text';
+                
+                // Clean and format the summary text properly
+                let formattedSummary = video.summary_text
+                    .replace(/=+/g, '')
+                    .replace(/MATHEMATICS LECTURE SUMMARY\s*/g, '')
+                    .replace(/Title:\s*/g, '<h3>Title: ')
+                    .replace(/Original File:\s*/g, '</h3><p><strong>Original File:</strong> ')
+                    .replace(/Generated:\s*/g, '<br><strong>Generated:</strong> ')
+                    .replace(/##\s*\*\*(.*?)\*\*/g, '<h3>$1</h3>')
+                    .replace(/##\s*(.*?)(\n|$)/g, '<h3>$1</h3>')
+                    .replace(/\*\*Primary Field:\*\*(.*?)(\n|$)/g, '<p><strong>Primary Field:</strong>$1</p>')
+                    .replace(/\*\*Subfields:\*\*(.*?)(\n|$)/g, '<p><strong>Subfields:</strong>$1</p>')
+                    .replace(/\*\*Level:\*\*(.*?)(\n|$)/g, '<p><strong>Level:</strong>$1</p>')
+                    .replace(/- \*\*(.*?)\*\*/g, '<h4>$1</h4>')
+                    .replace(/- (.*?)(\n|$)/g, '<li>$1</li>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\n\s*\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>')
+                    .replace(/(<li>.*?<\/li>)/g, function(match) {
+                        return '<ul>' + match + '</ul>';
+                    })
+                    .replace(/<p><\/p>/g, '')
+                    .replace(/<p><br><\/p>/g, '');
+                
+                if (!formattedSummary.startsWith('<')) {
+                    formattedSummary = '<p>' + formattedSummary + '</p>';
+                }
+                
+                summaryDiv.innerHTML = formattedSummary;
+                modalBody.appendChild(summaryDiv);
+                
+                document.getElementById('modal').classList.add('show');
+            } else {
+                alert('Summary not available for this video.');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+
+        function clearAllFilters() {
+            // Reset search input
+            document.getElementById('searchInput').value = '';
+            
+            // Reset category pills
+            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            document.querySelector('.pill[data-category="all"]').classList.add('active');
+            
+            // Reset navigation
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector('.nav-item[data-view="home"]').classList.add('active');
+            
+            // Reset field filters
+            document.querySelectorAll('.filter-item[data-field]').forEach(f => f.classList.remove('active'));
+            document.querySelector('.filter-item[data-field="all"]').classList.add('active');
+            
+            // Reset year filters
+            document.querySelectorAll('#yearFilters .filter-item').forEach(y => y.classList.remove('active'));
+            const allYearsFilter = document.querySelector('#yearFilters .filter-item[data-year="all"]');
+            if (allYearsFilter) allYearsFilter.classList.add('active');
+            
+            // Reset feature filters
+            document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
+            
+            // Clear search metadata from videos
+            const cleanVideos = allVideos.map(video => {
+                const cleanVideo = { ...video };
+                delete cleanVideo._searchScore;
+                delete cleanVideo._searchRelevance;
+                delete cleanVideo._matchedFields;
+                return cleanVideo;
+            });
+            
+            // Show all videos
+            showVideos(cleanVideos);
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, setting up event listeners...');
+            
+            // Category pills
+            document.querySelectorAll('.pill').forEach(function(pill) {
+                pill.addEventListener('click', function() {
+                    console.log('Category pill clicked:', this.getAttribute('data-category'));
+                    
+                    // Update UI
+                    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Apply filter
+                    const category = this.getAttribute('data-category');
+                    filterByCategory(category);
+                });
+            });
+            
+            // Navigation items
+            document.querySelectorAll('.nav-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    console.log('Nav item clicked:', this.getAttribute('data-view'));
+                    
+                    // Update UI
+                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Apply filter
+                    const view = this.getAttribute('data-view');
+                    filterByView(view);
+                });
+            });
+            
+            // Research field filters
+            document.querySelectorAll('.filter-item[data-field]').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    console.log('Field filter clicked:', this.getAttribute('data-field'));
+                    
+                    // Apply filter
+                    const field = this.getAttribute('data-field');
+                    filterByField(field);
+                });
+            });
+            
+            // Content feature filters
+            document.querySelectorAll('.filter-item[data-feature]').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    console.log('Feature filter clicked:', this.getAttribute('data-feature'));
+                    
+                    // Apply filter
+                    const feature = this.getAttribute('data-feature');
+                    filterByFeature(feature);
+                });
+            });
+            
+            // Search input
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+            
+            document.getElementById('searchInput').addEventListener('input', function() {
+                clearTimeout(window.searchTimeout);
+                window.searchTimeout = setTimeout(performSearch, 300);
+            });
+            
+            // Load videos
+            loadVideos();
+        });
+    </script>
 </body>
 </html>
