@@ -479,12 +479,24 @@
             font-size: 12px;
             cursor: pointer;
             transition: all 0.2s;
+            display: inline-block;
+            text-decoration: none;
         }
         
         .btn-secondary:hover {
             background-color: #e3f2fd;
             color: #2c5aa0;
             border-color: #2c5aa0;
+        }
+        
+        a.btn-secondary {
+            color: #666;
+            text-decoration: none;
+        }
+        
+        a.btn-secondary:hover {
+            color: #2c5aa0;
+            text-decoration: none;
         }
 
         .modal {
@@ -1367,6 +1379,38 @@
                     summaryBtn.onclick = function() { showSummaryModal(video); };
                     actions.appendChild(summaryBtn);
                 }
+                
+                // Add MP3 download button
+                const mp3Btn = document.createElement('a');
+                mp3Btn.className = 'btn-secondary';
+                mp3Btn.textContent = '🎵 MP3';
+                mp3Btn.title = 'Download audio version';
+                
+                // Generate MP3 URL from video URL
+                const videoUrl = (video.files && video.files.video_url) || '';
+                if (videoUrl) {
+                    // Convert video URL to audio URL
+                    // From: https://videos.birs.ca/2020/20w5217/202003051330-Angelini-Knoll.mp4
+                    // To: https://audio.birs.ca/2020/20w5217/202003051330-Angelini-Knoll.mp3
+                    const mp3Url = videoUrl
+                        .replace('videos.birs.ca', 'audio.birs.ca')
+                        .replace('archive.birs.ca', 'audio.birs.ca')
+                        .replace('.mp4', '.mp3');
+                    
+                    mp3Btn.href = mp3Url;
+                    mp3Btn.download = ''; // This suggests browser should download rather than navigate
+                    mp3Btn.target = '_blank';
+                } else {
+                    mp3Btn.href = '#';
+                    mp3Btn.style.opacity = '0.5';
+                    mp3Btn.style.cursor = 'not-allowed';
+                    mp3Btn.onclick = function(e) { 
+                        e.preventDefault(); 
+                        alert('Audio not available for this video');
+                    };
+                }
+                
+                actions.appendChild(mp3Btn);
                 
                 content.appendChild(actions);
                 card.appendChild(content);

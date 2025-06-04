@@ -1,6 +1,6 @@
 # BIRS Video Search Enhancement Plan
 
-## Current Status ✅ (June 2025)
+## Current Status ✅ (December 2024)
 - [x] **Full YouTube-inspired interface** with BIRS logo and blue branding
 - [x] **Working with 10,986+ videos** loaded from comprehensive JSON data
 - [x] **Advanced fuzzy search** using Fuse.js with multi-field scoring
@@ -15,12 +15,15 @@
 - [x] **Search relevance scoring** with multi-field match indicators
 - [x] **Responsive design** with mobile optimization
 - [x] **Direct video links** to BIRS hosting (videos.birs.ca)
+- [x] **MP3 audio downloads** with links to audio.birs.ca (Dec 2024)
 
 ## Recently Completed ✅
 - [x] **Content processing pipeline** - Transcripts and AI summaries generated
 - [x] **Enhanced data structure** - Rich metadata with abstracts, concepts, and classifications
 - [x] **Advanced search scoring** - Weighted relevance with field-specific boosts
 - [x] **UI/UX polish** - YouTube-inspired design with BIRS branding
+- [x] **Infinite scroll implementation** - Progressive loading with 30 videos per page (Dec 2024)
+- [x] **MP3 download buttons** - Audio downloads from audio.birs.ca (Dec 2024)
 
 ---
 
