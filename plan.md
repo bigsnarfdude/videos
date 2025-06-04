@@ -16,6 +16,7 @@
 - [x] **Responsive design** with mobile optimization
 - [x] **Direct video links** to BIRS hosting (videos.birs.ca)
 - [x] **MP3 audio downloads** with links to audio.birs.ca (Dec 2024)
+- [x] **Smart auto-complete search** with discovery-focused suggestions (Dec 2024)
 
 ## Recently Completed ✅
 - [x] **Content processing pipeline** - Transcripts and AI summaries generated
@@ -24,6 +25,7 @@
 - [x] **UI/UX polish** - YouTube-inspired design with BIRS branding
 - [x] **Infinite scroll implementation** - Progressive loading with 30 videos per page (Dec 2024)
 - [x] **MP3 download buttons** - Audio downloads from audio.birs.ca (Dec 2024)
+- [x] **Auto-complete search suggestions** - Discovery-focused with concepts, workshop codes, and fields (Dec 2024)
 
 ---
 
@@ -42,7 +44,7 @@
   - Content type filtering (transcript/summary availability)
 
 ### Remaining Search Tasks
-- [ ] **Auto-complete suggestions** from existing titles/speakers
+- [x] **Auto-complete suggestions** ✅ COMPLETED (Dec 2024) - Concepts, workshop codes, and research fields
 - [ ] **Date range picker** for workshop dates
 - [ ] **Boolean search operators** (AND, OR, NOT)
 
@@ -249,8 +251,8 @@
 
 ### 🔄 IMMEDIATE NEXT PRIORITIES (Updated Dec 2024)
 1. ✅ **Pagination/infinite scroll** - COMPLETED with 30 videos per page loading
-2. **Sort options** (relevance, date, speaker, title) - Next priority
-3. **Auto-complete search suggestions**
+2. ✅ **Auto-complete search suggestions** - COMPLETED with concepts, workshop codes, and research fields
+3. **Sort options** (relevance, date, speaker, title) - Next priority
 4. **Embedded video player** with transcript synchronization
 5. **Boolean search operators** for advanced queries
 

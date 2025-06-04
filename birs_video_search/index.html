@@ -49,6 +49,49 @@
             max-width: 600px;
             display: flex;
             margin: 0 auto;
+            position: relative;
+        }
+        
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 45px; /* Account for search button */
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-height: 320px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        
+        .suggestion-item:hover, .suggestion-item.selected {
+            background-color: #f8f9fa;
+        }
+        
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestion-text {
+            color: #333;
+        }
+        
+        .suggestion-type {
+            font-size: 12px;
+            color: #666;
+            margin-left: 8px;
         }
         
         .search-input {
@@ -687,6 +730,9 @@
         <div class="search-container">
             <input type="text" class="search-input" placeholder="Search research videos..." id="searchInput">
             <button class="search-btn" onclick="performSearch()">🔍</button>
+            <div class="search-suggestions" id="searchSuggestions">
+                <!-- Suggestions will be populated here -->
+            </div>
         </div>
     </header>
 
@@ -852,6 +898,12 @@
         let displayedCount = 0; // Number of videos currently displayed
         const VIDEOS_PER_PAGE = 30; // Number of videos to load at once
         let isLoading = false; // Prevent multiple simultaneous loads
+        
+        // Auto-complete variables
+        let allConcepts = new Set(); // All unique concepts
+        let allWorkshopCodes = new Set(); // All unique workshop codes
+        let allFields = new Set(); // All research fields
+        let suggestionCache = new Map(); // Cache for suggestions
 
         async function loadVideos() {
             try {
@@ -887,6 +939,9 @@
                 
                 // Initialize Fuse.js for fuzzy search
                 initializeFuzzySearch();
+                
+                // Initialize auto-complete data
+                initializeAutoComplete();
                 
                 populateYearFilters();
                 addYearFilterListeners();
@@ -1634,6 +1689,205 @@
             fuse = new Fuse(allVideos, fuseOptions);
             console.log('Fuse.js initialized with', allVideos.length, 'videos');
         }
+        
+        function initializeAutoComplete() {
+            console.log('Initializing auto-complete data...');
+            
+            // Clear existing data
+            allConcepts.clear();
+            allWorkshopCodes.clear();
+            allFields.clear();
+            
+            allVideos.forEach(video => {
+                // Extract concepts
+                if (video.content && video.content.concepts && Array.isArray(video.content.concepts)) {
+                    video.content.concepts.forEach(concept => {
+                        if (concept && typeof concept === 'string' && concept.trim().length > 2) {
+                            // Clean up concepts - remove formatting and get meaningful terms
+                            let cleanConcept = concept
+                                .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
+                                .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
+                                .replace(/^- /, '') // Remove list markers
+                                .trim();
+                            
+                            // Skip section headers and very long descriptions
+                            if (!cleanConcept.includes('**') && 
+                                !cleanConcept.includes('Theorems/Results') &&
+                                !cleanConcept.includes('Mathematical Objects') &&
+                                !cleanConcept.includes('Techniques/Methods') &&
+                                !cleanConcept.includes('Formulas/Equations') &&
+                                cleanConcept.length < 80 &&
+                                cleanConcept.length > 3) {
+                                allConcepts.add(cleanConcept);
+                            }
+                        }
+                    });
+                }
+                
+                // Extract research fields
+                if (video.content && video.content.field) {
+                    allFields.add(video.content.field);
+                }
+                
+                // Extract workshop codes from video URLs
+                if (video.files && video.files.video_url) {
+                    const urlMatch = video.files.video_url.match(/\/(\d{2}w\d{4})\//);
+                    if (urlMatch) {
+                        allWorkshopCodes.add(urlMatch[1]);
+                    }
+                }
+            });
+            
+            console.log(`Auto-complete data extracted:
+                Concepts: ${allConcepts.size}
+                Fields: ${allFields.size}
+                Workshop Codes: ${allWorkshopCodes.size}`);
+        }
+        
+        function getSuggestions(query) {
+            if (!query || query.length < 2) return [];
+            
+            // Check cache first
+            const cacheKey = query.toLowerCase();
+            if (suggestionCache.has(cacheKey)) {
+                return suggestionCache.get(cacheKey);
+            }
+            
+            const suggestions = [];
+            const queryLower = query.toLowerCase();
+            
+            // Search workshop codes (exact prefix match)
+            allWorkshopCodes.forEach(code => {
+                if (code.toLowerCase().startsWith(queryLower)) {
+                    suggestions.push({
+                        text: code,
+                        type: 'workshop',
+                        display: `📅 ${code} (Workshop)`
+                    });
+                }
+            });
+            
+            // Search research fields (fuzzy match)
+            allFields.forEach(field => {
+                if (field.toLowerCase().includes(queryLower)) {
+                    suggestions.push({
+                        text: field,
+                        type: 'field',
+                        display: `🔬 ${field}`
+                    });
+                }
+            });
+            
+            // Search concepts (fuzzy match)
+            allConcepts.forEach(concept => {
+                if (concept.toLowerCase().includes(queryLower)) {
+                    suggestions.push({
+                        text: concept,
+                        type: 'concept',
+                        display: `💡 ${concept}`
+                    });
+                }
+            });
+            
+            // Sort and limit suggestions
+            suggestions.sort((a, b) => {
+                // Prioritize: workshop codes, then fields, then concepts
+                if (a.type !== b.type) {
+                    const typeOrder = { workshop: 0, field: 1, concept: 2 };
+                    return typeOrder[a.type] - typeOrder[b.type];
+                }
+                // Within same type, sort by text length (shorter first)
+                return a.text.length - b.text.length;
+            });
+            
+            // Limit to 8 suggestions
+            const limitedSuggestions = suggestions.slice(0, 8);
+            
+            // Cache the result
+            suggestionCache.set(cacheKey, limitedSuggestions);
+            
+            return limitedSuggestions;
+        }
+        
+        function showSuggestions(suggestions) {
+            const suggestionsContainer = document.getElementById('searchSuggestions');
+            
+            if (suggestions.length === 0) {
+                suggestionsContainer.style.display = 'none';
+                return;
+            }
+            
+            suggestionsContainer.innerHTML = '';
+            
+            suggestions.forEach((suggestion, index) => {
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+                item.innerHTML = suggestion.display;
+                item.dataset.text = suggestion.text;
+                item.dataset.index = index;
+                
+                item.addEventListener('click', function() {
+                    selectSuggestion(suggestion.text);
+                });
+                
+                suggestionsContainer.appendChild(item);
+            });
+            
+            suggestionsContainer.style.display = 'block';
+        }
+        
+        function hideSuggestions() {
+            document.getElementById('searchSuggestions').style.display = 'none';
+        }
+        
+        function selectSuggestion(text) {
+            document.getElementById('searchInput').value = text;
+            hideSuggestions();
+            performSearch();
+        }
+        
+        let selectedSuggestionIndex = -1;
+        
+        function handleKeyboardNavigation(event) {
+            const suggestionsContainer = document.getElementById('searchSuggestions');
+            const suggestions = suggestionsContainer.querySelectorAll('.suggestion-item');
+            
+            if (suggestions.length === 0) return;
+            
+            switch(event.key) {
+                case 'ArrowDown':
+                    event.preventDefault();
+                    selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, suggestions.length - 1);
+                    updateSelectedSuggestion(suggestions);
+                    break;
+                case 'ArrowUp':
+                    event.preventDefault();
+                    selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+                    updateSelectedSuggestion(suggestions);
+                    break;
+                case 'Enter':
+                    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length) {
+                        event.preventDefault();
+                        const selectedText = suggestions[selectedSuggestionIndex].dataset.text;
+                        selectSuggestion(selectedText);
+                    }
+                    break;
+                case 'Escape':
+                    hideSuggestions();
+                    selectedSuggestionIndex = -1;
+                    break;
+            }
+        }
+        
+        function updateSelectedSuggestion(suggestions) {
+            suggestions.forEach((item, index) => {
+                if (index === selectedSuggestionIndex) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
 
         function updateFilterCounts() {
             document.getElementById('count-all').textContent = allVideos.length;
@@ -1936,16 +2190,55 @@
                 });
             });
             
-            // Search input
-            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            // Search input with auto-complete
+            const searchInput = document.getElementById('searchInput');
+            
+            searchInput.addEventListener('keydown', function(e) {
+                handleKeyboardNavigation(e);
+            });
+            
+            searchInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    performSearch();
+                    // Only perform search if no suggestion is selected
+                    const suggestions = document.getElementById('searchSuggestions');
+                    if (suggestions.style.display === 'none' || selectedSuggestionIndex === -1) {
+                        performSearch();
+                        hideSuggestions();
+                    }
                 }
             });
             
-            document.getElementById('searchInput').addEventListener('input', function() {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.trim();
+                selectedSuggestionIndex = -1; // Reset selection
+                
                 clearTimeout(window.searchTimeout);
-                window.searchTimeout = setTimeout(performSearch, 300);
+                clearTimeout(window.suggestionTimeout);
+                
+                if (query.length >= 2) {
+                    // Show suggestions after 200ms
+                    window.suggestionTimeout = setTimeout(() => {
+                        const suggestions = getSuggestions(query);
+                        showSuggestions(suggestions);
+                    }, 200);
+                    
+                    // Perform search after 500ms
+                    window.searchTimeout = setTimeout(performSearch, 500);
+                } else {
+                    hideSuggestions();
+                    if (query.length === 0) {
+                        // Show all videos when search is cleared
+                        window.searchTimeout = setTimeout(performSearch, 100);
+                    }
+                }
+            });
+            
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-container')) {
+                    hideSuggestions();
+                    selectedSuggestionIndex = -1;
+                }
             });
             
             // Load videos
