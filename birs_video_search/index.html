@@ -355,6 +355,34 @@
             flex-direction: column;
         }
         
+        .relevance-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #4caf50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .relevance-badge.high {
+            background: #4caf50;
+        }
+        
+        .relevance-badge.medium {
+            background: #ff9800;
+        }
+        
+        .relevance-badge.low {
+            background: #f44336;
+        }
+        
         .card-content h3 {
             margin: 0 0 8px 0;
             font-size: 15px;
@@ -398,6 +426,17 @@
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
+        }
+        
+        .match-indicator {
+            font-size: 11px;
+            color: #2c5aa0;
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+        
+        .match-indicator strong {
+            font-weight: 600;
         }
         
         .card-actions {
@@ -618,6 +657,8 @@
             }
         }
     </style>
+    <!-- Fuse.js for fuzzy search -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
 </head>
 <body>
     <header class="header">
@@ -783,6 +824,7 @@
         };
 
         let allVideos = [];
+        let fuse = null; // Fuse.js instance for fuzzy search
 
         async function loadVideos() {
             try {
@@ -815,6 +857,10 @@
                 allVideos = allVideos.map(normalizeVideo);
                 
                 console.log(`Successfully processed ${allVideos.length} videos`);
+                
+                // Initialize Fuse.js for fuzzy search
+                initializeFuzzySearch();
+                
                 populateYearFilters();
                 addYearFilterListeners();
                 updateFilterCounts();
@@ -1114,6 +1160,24 @@
             
             thumbnail.appendChild(qualityBadges);
             
+            // Add relevance badge if this is a search result
+            if (video._searchRelevance !== undefined) {
+                const relevanceBadge = document.createElement('div');
+                relevanceBadge.className = 'relevance-badge';
+                
+                // Determine relevance level and style
+                if (video._searchRelevance >= 80) {
+                    relevanceBadge.classList.add('high');
+                } else if (video._searchRelevance >= 60) {
+                    relevanceBadge.classList.add('medium');
+                } else {
+                    relevanceBadge.classList.add('low');
+                }
+                
+                relevanceBadge.innerHTML = `⭐ ${video._searchRelevance}% match`;
+                thumbnail.appendChild(relevanceBadge);
+            }
+            
             const metadataOverlay = document.createElement('div');
             metadataOverlay.className = 'metadata-overlay';
             const field = (video.content && video.content.field) || 'Mathematics';
@@ -1204,6 +1268,24 @@
                     conceptsDiv.appendChild(tag);
                 });
                 content.appendChild(conceptsDiv);
+                
+                // Show which fields matched if this is a search result
+                if (video._matchedFields && video._matchedFields.length > 0) {
+                    const matchIndicator = document.createElement('div');
+                    matchIndicator.className = 'match-indicator';
+                    const fieldNames = video._matchedFields.map(field => {
+                        switch(field) {
+                            case 'name': return 'speaker';
+                            case 'concepts': return 'concepts';
+                            case 'abstract': return 'description';
+                            case 'transcript': return 'transcript';
+                            case 'summary_text': return 'AI summary';
+                            default: return field;
+                        }
+                    });
+                    matchIndicator.innerHTML = `<strong>Matched in:</strong> ${fieldNames.join(', ')}`;
+                    content.appendChild(matchIndicator);
+                }
                 
                 const abstract = document.createElement('div');
                 abstract.className = 'card-abstract';
@@ -1385,6 +1467,43 @@
             showVideos(filtered);
         }
 
+        function initializeFuzzySearch() {
+            // Configure Fuse.js options
+            const fuseOptions = {
+                keys: [
+                    { name: 'title', weight: 0.3 },
+                    { name: 'speaker.name', weight: 0.2 },
+                    { name: 'content.field', weight: 0.15 },
+                    { name: 'content.abstract', weight: 0.15 },
+                    { name: 'content.concepts', weight: 0.1 },
+                    { name: 'transcript', weight: 0.05 },
+                    { name: 'summary_text', weight: 0.05 }
+                ],
+                includeScore: true,
+                includeMatches: true, // Include which fields matched
+                threshold: 0.3, // Lower threshold for better exact matches
+                location: 0, // At what location in the string to look for the pattern
+                distance: 1000, // Increase distance to not penalize matches in longer fields
+                minMatchCharLength: 2,
+                shouldSort: true,
+                findAllMatches: true,
+                ignoreLocation: true, // Ignore location to find matches anywhere in the field
+                useExtendedSearch: false,
+                // Fine-tune the scoring
+                ignoreFieldNorm: false, // Consider field length in scoring
+                getFn: (obj, path) => {
+                    const value = path.reduce((obj, key) => obj ? obj[key] : null, obj);
+                    if (!value) return '';
+                    if (Array.isArray(value)) return value.join(' ');
+                    return value.toString();
+                }
+            };
+            
+            // Create Fuse instance
+            fuse = new Fuse(allVideos, fuseOptions);
+            console.log('Fuse.js initialized with', allVideos.length, 'videos');
+        }
+
         function updateFilterCounts() {
             document.getElementById('count-all').textContent = allVideos.length;
             
@@ -1417,29 +1536,103 @@
         }
 
         function performSearch() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const searchTerm = document.getElementById('searchInput').value.trim();
             console.log('Performing search for:', searchTerm);
             
             let filtered = allVideos;
             
-            if (searchTerm) {
-                filtered = filtered.filter(function(video) {
-                    const titleMatch = (video.title || '').toLowerCase().includes(searchTerm);
-                    const speakerMatch = ((video.speaker && video.speaker.name) || '').toLowerCase().includes(searchTerm);
-                    const fieldMatch = ((video.content && video.content.field) || '').toLowerCase().includes(searchTerm);
-                    const abstractMatch = ((video.content && video.content.abstract) || '').toLowerCase().includes(searchTerm);
-                    const transcriptMatch = (video.transcript || '').toLowerCase().includes(searchTerm);
-                    const summaryMatch = (video.summary_text || '').toLowerCase().includes(searchTerm);
+            if (searchTerm && fuse) {
+                // Use Fuse.js for fuzzy search
+                const searchResults = fuse.search(searchTerm);
+                console.log(`Found ${searchResults.length} fuzzy matches for "${searchTerm}"`);
+                
+                // Extract the actual video objects from search results
+                // and store the score for potential use
+                filtered = searchResults.map(result => {
+                    // Add search score to video object for ranking display
+                    const video = { ...result.item };
+                    video._searchScore = result.score;
                     
-                    let conceptsMatch = false;
-                    if (video.content && video.content.concepts) {
-                        conceptsMatch = video.content.concepts.some(function(concept) {
-                            return concept.toLowerCase().includes(searchTerm);
+                    // Calculate base relevance from Fuse.js score
+                    let baseRelevance = (1 - result.score) * 100;
+                    
+                    // Count unique fields that matched
+                    const matchedFields = new Set();
+                    if (result.matches) {
+                        result.matches.forEach(match => {
+                            const keyParts = match.key.split('.');
+                            const fieldName = keyParts[keyParts.length - 1];
+                            matchedFields.add(fieldName);
                         });
                     }
                     
-                    return titleMatch || speakerMatch || fieldMatch || abstractMatch || conceptsMatch || transcriptMatch || summaryMatch;
+                    // Calculate relevance with multiple factors
+                    let relevance = baseRelevance;
+                    
+                    // 1. Boost for multiple field matches (compound relevance)
+                    const fieldCount = matchedFields.size;
+                    if (fieldCount > 1) {
+                        // Each additional field adds to confidence
+                        const multiFieldBoost = Math.min(fieldCount * 8, 30); // Cap at 30% boost
+                        relevance = Math.min(relevance + multiFieldBoost, 95);
+                    }
+                    
+                    // Debug logging
+                    if (fieldCount >= 3) {
+                        console.log(`Video "${video.title}" - Base: ${baseRelevance.toFixed(1)}%, Fields: ${fieldCount}, Boosted: ${relevance.toFixed(1)}%`);
+                    }
+                    
+                    // 2. Check for exact matches in high-priority fields
+                    const searchLower = searchTerm.toLowerCase();
+                    let hasExactMatch = false;
+                    
+                    if (video.title && video.title.toLowerCase().includes(searchLower)) {
+                        relevance = Math.max(relevance, 90); // Title exact match
+                        hasExactMatch = true;
+                    }
+                    if (video.speaker && video.speaker.name && 
+                        video.speaker.name.toLowerCase().includes(searchLower)) {
+                        relevance = Math.max(relevance, 85); // Speaker exact match
+                        hasExactMatch = true;
+                    }
+                    if (video.content && video.content.field && 
+                        video.content.field.toLowerCase().includes(searchLower)) {
+                        relevance = Math.max(relevance, 80); // Field exact match
+                        hasExactMatch = true;
+                    }
+                    
+                    // 3. If we have exact matches AND multiple fields, boost even more
+                    if (hasExactMatch && fieldCount >= 3) {
+                        relevance = Math.max(relevance, 92);
+                    }
+                    
+                    // 4. Super boost for matching in ALL major fields (5+ fields)
+                    if (fieldCount >= 5) {
+                        relevance = Math.max(relevance, 88);
+                    }
+                    
+                    // Cap at 98% (reserve 99-100% for perfect matches)
+                    video._searchRelevance = Math.min(Math.round(relevance), 98);
+                    
+                    // Store which fields matched for highlighting
+                    if (result.matches) {
+                        video._matchedFields = Array.from(matchedFields);
+                    }
+                    
+                    return video;
                 });
+                
+                // If fuzzy search returns no results, show a message
+                if (filtered.length === 0) {
+                    console.log('No fuzzy matches found, trying exact match fallback...');
+                    // Fallback to exact match for very specific searches
+                    const searchLower = searchTerm.toLowerCase();
+                    filtered = allVideos.filter(function(video) {
+                        const titleMatch = (video.title || '').toLowerCase().includes(searchLower);
+                        const speakerMatch = ((video.speaker && video.speaker.name) || '').toLowerCase().includes(searchLower);
+                        return titleMatch || speakerMatch;
+                    });
+                }
             }
             
             showVideos(filtered);
@@ -1536,8 +1729,17 @@
             // Reset feature filters
             document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
             
+            // Clear search metadata from videos
+            const cleanVideos = allVideos.map(video => {
+                const cleanVideo = { ...video };
+                delete cleanVideo._searchScore;
+                delete cleanVideo._searchRelevance;
+                delete cleanVideo._matchedFields;
+                return cleanVideo;
+            });
+            
             // Show all videos
-            showVideos(allVideos);
+            showVideos(cleanVideos);
         }
 
         window.onclick = function(event) {
