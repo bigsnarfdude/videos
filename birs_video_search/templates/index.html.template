@@ -39,6 +39,6 @@
     <footer>
         <p>&copy; 2024 BIRS</p>
     </footer>
-    <script src="static/search.js"></script>
+    <script src="static/search-enhanced.js"></script>
 </body>
 </html>

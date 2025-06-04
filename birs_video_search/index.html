@@ -728,7 +728,27 @@
         </aside>
 
         <main class="content">
-            <div class="results-header" id="resultsHeader">Loading videos...</div>
+            <div class="results-header" id="resultsHeader">
+                <span id="resultsText">Loading videos...</span>
+                <div id="loadingSpinner" style="display: inline-block; margin-left: 10px;">
+                    <style>
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                        .spinner {
+                            display: inline-block;
+                            width: 16px;
+                            height: 16px;
+                            border: 2px solid #f3f3f3;
+                            border-top: 2px solid #2c5aa0;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                        }
+                    </style>
+                    <div class="spinner"></div>
+                </div>
+            </div>
             <div class="video-grid" id="videoGrid">
                 <!-- Videos will be populated here -->
             </div>
@@ -767,7 +787,8 @@
         async function loadVideos() {
             try {
                 console.log("Loading videos from static/videos.json...");
-                document.getElementById('resultsHeader').textContent = "Loading videos from static/videos.json...";
+                document.getElementById('resultsText').textContent = "Loading videos from static/videos.json...";
+                document.getElementById('loadingSpinner').style.display = 'inline-block';
                 
                 let data;
                 try {
@@ -778,51 +799,18 @@
                     data = await response.json();
                 } catch (fetchError) {
                     console.log("Could not load videos.json, using sample data");
-                    // Use sample data if videos.json is not available
-                    // Use the actual data from the provided JSON
-                    data = [
-                        {
-                            "id": "202003051330-Angelini-Knoll",
-                            "filename": "202003051330-Angelini-Knoll.mp4",
-                            "transcript": "I'm really happy to be here, head to head up to. So, I'm going to talk about. So, I'm going to talk about joint work with Tina Gerhardt and Vaikil...",
-                            "video_url": "https://archive.birs.ca/2020/20w5217/202003051330-Angelini-Knoll.mp4",
-                            "date": "2020-03-05T21:58:00",
-                            "file_size": "339M",
-                            "speaker": "Knoll",
-                            "summary_text": "This lecture delves into two interconnected themes in equivariant homotopy theory: the construction and properties of Hill-Hopkins-Ravenel type norms, and their surprising connection to classical and generalized theories of Witt vectors...",
-                            "suggested_title": "Hill-Hopkins-Ravenel Norms for Cn Ring Spectra and Bit Vectors",
-                            "metadata": {
-                                "primary_field": "Algebraic Topology",
-                                "concepts": ["Hill-Hopkins-Ravenel Norm Properties", "Topological Hochschild Homology", "Equivariant Homotopy Theory"],
-                                "level": "Graduate/Research Level"
-                            }
-                        },
-                        {
-                            "id": "202407231407-Liu",
-                            "filename": "202407231407-Liu.mp4",
-                            "transcript": "Okay, thanks very much. It's my great pleasure to be able to present here. Sorry that I couldn't make it in person...",
-                            "video_url": "https://archive.birs.ca/2024/24w5292/202407231407-Liu.mp4",
-                            "date": "2024-07-23T20:33:00",
-                            "file_size": "27M",
-                            "speaker": "Liu",
-                            "summary_text": "This lecture presents advanced statistical and computational methods for improving the accuracy and interpretability of gene expression prediction...",
-                            "suggested_title": "Gene Expression Prediction in TWAS: Linking Genetic Variations to Target Genes",
-                            "metadata": {
-                                "primary_field": "Applied Statistics",
-                                "concepts": ["TWAS", "Gene Expression", "Statistical Genetics", "Computational Biology"],
-                                "level": "Graduate/Research level"
-                            }
-                        }
-                    ];
+                    // Return empty array if videos.json is not available
+                    console.error("Failed to load videos.json:", fetchError);
+                    throw new Error(`Failed to load video data: ${fetchError.message}`);
                 }
                 
                 console.log("Parsing video data...");
-                document.getElementById('resultsHeader').textContent = "Parsing video data...";
+                document.getElementById('resultsText').textContent = "Parsing video data...";
                 
                 allVideos = Array.isArray(data) ? data : [data];
                 
                 console.log(`Raw data loaded: ${allVideos.length} videos`);
-                document.getElementById('resultsHeader').textContent = "Processing video metadata...";
+                document.getElementById('resultsText').textContent = "Processing video metadata...";
                 
                 allVideos = allVideos.map(normalizeVideo);
                 
@@ -834,14 +822,28 @@
                 
             } catch (error) {
                 console.error("Error loading videos:", error);
-                document.getElementById('resultsHeader').textContent = "Error loading videos";
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('resultsText').textContent = "Error loading videos";
                 document.getElementById('videoGrid').innerHTML = 
                     '<div style="grid-column: 1/-1; text-align: center; padding: 40px;">' +
-                    '<h3>Error Loading Videos</h3>' +
-                    '<p><strong>Could not load video data</strong></p>' +
-                    '<p style="color: #666; margin: 10px 0;">Error: ' + error.message + '</p>' +
-                    '<button onclick="loadVideos()" style="padding: 10px 20px; background: #2c5aa0; color: white; border: none; border-radius: 6px; cursor: pointer;">' +
-                    'Retry Loading</button></div>';
+                    '<h3>⚠️ Unable to Load Videos</h3>' +
+                    '<p style="color: #666; margin: 20px 0;">We encountered an error while loading the video data.</p>' +
+                    '<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; margin: 20px auto; max-width: 500px; text-align: left;">' +
+                    '<p style="margin: 0 0 10px 0; font-size: 14px;"><strong>Error details:</strong></p>' +
+                    '<code style="color: #dc3545; font-size: 13px;">' + error.message + '</code>' +
+                    '</div>' +
+                    '<p style="color: #666; margin: 20px 0; font-size: 14px;">This might be due to:</p>' +
+                    '<ul style="text-align: left; display: inline-block; color: #666; font-size: 14px;">' +
+                    '<li>The video data file is missing or corrupted</li>' +
+                    '<li>Network connectivity issues</li>' +
+                    '<li>The server is temporarily unavailable</li>' +
+                    '</ul>' +
+                    '<div style="margin-top: 20px;">' +
+                    '<button onclick="loadVideos()" style="padding: 12px 24px; background: #2c5aa0; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-right: 10px;">' +
+                    '🔄 Try Again</button>' +
+                    '<button onclick="window.location.reload()" style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">' +
+                    '↻ Reload Page</button>' +
+                    '</div></div>';
             }
         }
 
@@ -1127,8 +1129,20 @@
             const grid = document.getElementById('videoGrid');
             const header = document.getElementById('resultsHeader');
             
-            header.textContent = 'Showing ' + videos.length + ' of ' + allVideos.length + ' videos';
+            document.getElementById('loadingSpinner').style.display = 'none';
+            document.getElementById('resultsText').textContent = 'Showing ' + videos.length + ' of ' + allVideos.length + ' videos';
             grid.innerHTML = '';
+            
+            if (videos.length === 0) {
+                grid.innerHTML = 
+                    '<div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">' +
+                    '<h3 style="color: #666; margin-bottom: 20px;">No Videos Found</h3>' +
+                    '<p style="color: #666; margin-bottom: 30px;">Try adjusting your search criteria or filters.</p>' +
+                    '<button onclick="clearAllFilters()" style="padding: 10px 20px; background: #2c5aa0; color: white; border: none; border-radius: 6px; cursor: pointer;">' +
+                    'Clear All Filters</button>' +
+                    '</div>';
+                return;
+            }
             
             videos.forEach(function(video) {
                 const card = document.createElement('div');
@@ -1496,6 +1510,34 @@
 
         function closeModal() {
             document.getElementById('modal').classList.remove('show');
+        }
+
+        function clearAllFilters() {
+            // Reset search input
+            document.getElementById('searchInput').value = '';
+            
+            // Reset category pills
+            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            document.querySelector('.pill[data-category="all"]').classList.add('active');
+            
+            // Reset navigation
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector('.nav-item[data-view="home"]').classList.add('active');
+            
+            // Reset field filters
+            document.querySelectorAll('.filter-item[data-field]').forEach(f => f.classList.remove('active'));
+            document.querySelector('.filter-item[data-field="all"]').classList.add('active');
+            
+            // Reset year filters
+            document.querySelectorAll('#yearFilters .filter-item').forEach(y => y.classList.remove('active'));
+            const allYearsFilter = document.querySelector('#yearFilters .filter-item[data-year="all"]');
+            if (allYearsFilter) allYearsFilter.classList.add('active');
+            
+            // Reset feature filters
+            document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
+            
+            // Show all videos
+            showVideos(allVideos);
         }
 
         window.onclick = function(event) {
