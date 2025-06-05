@@ -45,7 +45,7 @@
 
 ### Remaining Search Tasks
 - [x] **Auto-complete suggestions** ✅ COMPLETED (Dec 2024) - Concepts, workshop codes, and research fields
-- [ ] **Date range picker** for workshop dates
+- [x] **Date range picker** for workshop dates
 - [ ] **Boolean search operators** (AND, OR, NOT)
 
 ### UI/UX Enhancements ✅ MOSTLY COMPLETE
