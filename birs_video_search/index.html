@@ -541,6 +541,95 @@
             color: #2c5aa0;
             text-decoration: none;
         }
+        
+        /* Date Range Picker Styles */
+        .date-range-container {
+            padding: 8px 12px;
+        }
+        
+        .date-input-group {
+            margin-bottom: 12px;
+        }
+        
+        .date-input-group label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .date-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+        }
+        
+        .date-input:focus {
+            outline: none;
+            border-color: #2c5aa0;
+            box-shadow: 0 0 0 2px rgba(44, 90, 160, 0.1);
+        }
+        
+        .date-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .btn-apply-date, .btn-clear-date {
+            flex: 1;
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-apply-date {
+            background: #2c5aa0;
+            color: white;
+            border-color: #2c5aa0;
+        }
+        
+        .btn-apply-date:hover {
+            background: #1e3f73;
+        }
+        
+        .btn-clear-date {
+            background: #f5f5f5;
+            color: #666;
+        }
+        
+        .btn-clear-date:hover {
+            background: #e0e0e0;
+        }
+        
+        .date-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        
+        .date-preset {
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 3px;
+            font-size: 10px;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .date-preset:hover {
+            background: #e3f2fd;
+            color: #2c5aa0;
+            border-color: #2c5aa0;
+        }
 
         .modal {
             display: none;
@@ -817,6 +906,33 @@
 
             <div class="nav-divider"></div>
 
+            <!-- Date Range Filter -->
+            <div class="nav-header">Date Range</div>
+            <div class="filter-section">
+                <div class="date-range-container">
+                    <div class="date-input-group">
+                        <label for="startDate">From:</label>
+                        <input type="date" id="startDate" class="date-input">
+                    </div>
+                    <div class="date-input-group">
+                        <label for="endDate">To:</label>
+                        <input type="date" id="endDate" class="date-input">
+                    </div>
+                    <div class="date-actions">
+                        <button class="btn-apply-date" onclick="applyDateFilter()">Apply</button>
+                        <button class="btn-clear-date" onclick="clearDateFilter()">Clear</button>
+                    </div>
+                    <div class="date-presets">
+                        <button class="date-preset" onclick="setDatePreset('lastMonth')">Last Month</button>
+                        <button class="date-preset" onclick="setDatePreset('lastYear')">Last Year</button>
+                        <button class="date-preset" onclick="setDatePreset('2024')">2024</button>
+                        <button class="date-preset" onclick="setDatePreset('2023')">2023</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-divider"></div>
+
             <!-- Content Types -->
             <div class="nav-header">Content Features</div>
             <div class="filter-section">
@@ -904,6 +1020,11 @@
         let allWorkshopCodes = new Set(); // All unique workshop codes
         let allFields = new Set(); // All research fields
         let suggestionCache = new Map(); // Cache for suggestions
+        
+        // Date filtering variables
+        let selectedStartDate = null;
+        let selectedEndDate = null;
+        let allVideoDates = []; // All video dates for min/max calculation
 
         async function loadVideos() {
             try {
@@ -942,6 +1063,9 @@
                 
                 // Initialize auto-complete data
                 initializeAutoComplete();
+                
+                // Initialize date picker
+                initializeDatePicker();
                 
                 populateYearFilters();
                 addYearFilterListeners();
@@ -1067,6 +1191,41 @@
                 summary_text: video.summary_text || video.summary || "",
                 file_size: video.file_size
             };
+        }
+        
+        function extractVideoDate(video) {
+            // Primary: Use recorded_date if available
+            if (video.metadata && video.metadata.recorded_date && video.metadata.recorded_date !== 'Unknown') {
+                return video.metadata.recorded_date;
+            }
+            
+            // Fallback: Extract from video ID
+            if (video.id) {
+                const parts = video.id.split('_');
+                if (parts.length >= 3) {
+                    const timestamp = parts[parts.length - 1];
+                    if (timestamp.length === 12 && /^\d+$/.test(timestamp)) {
+                        const year = timestamp.substring(0, 4);
+                        const month = timestamp.substring(4, 6);
+                        const day = timestamp.substring(6, 8);
+                        return `${year}-${month}-${day}`;
+                    }
+                }
+            }
+            
+            // Alternative: Extract from video URL
+            if (video.files && video.files.video_url) {
+                const urlMatch = video.files.video_url.match(/\/(\d{12})-/);
+                if (urlMatch) {
+                    const timestamp = urlMatch[1];
+                    const year = timestamp.substring(0, 4);
+                    const month = timestamp.substring(4, 6);
+                    const day = timestamp.substring(6, 8);
+                    return `${year}-${month}-${day}`;
+                }
+            }
+            
+            return null;
         }
 
         function extractYearFromDate(dateStr) {
@@ -1559,6 +1718,9 @@
                 });
             }
             
+            // Apply date filtering
+            filtered = filterVideosByDate(filtered);
+            
             showVideos(filtered);
         }
 
@@ -1593,6 +1755,9 @@
                     break;
             }
             
+            // Apply date filtering
+            filtered = filterVideosByDate(filtered);
+            
             showVideos(filtered);
         }
 
@@ -1610,6 +1775,9 @@
             document.querySelectorAll('.filter-item[data-field]').forEach(f => f.classList.remove('active'));
             document.querySelector('.filter-item[data-field="' + field + '"]').classList.add('active');
             
+            // Apply date filtering
+            filtered = filterVideosByDate(filtered);
+            
             showVideos(filtered);
         }
 
@@ -1621,6 +1789,10 @@
                     return (video.workshop && video.workshop.year) === year;
                 });
             }
+            
+            // Apply date filtering
+            filtered = filterVideosByDate(filtered);
+            
             showVideos(filtered);
         }
 
@@ -1649,6 +1821,9 @@
             // Update UI
             document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
             document.querySelector('.filter-item[data-feature="' + feature + '"]').classList.add('active');
+            
+            // Apply date filtering
+            filtered = filterVideosByDate(filtered);
             
             showVideos(filtered);
         }
@@ -1697,6 +1872,7 @@
             allConcepts.clear();
             allWorkshopCodes.clear();
             allFields.clear();
+            allVideoDates = [];
             
             allVideos.forEach(video => {
                 // Extract concepts
@@ -1736,12 +1912,26 @@
                         allWorkshopCodes.add(urlMatch[1]);
                     }
                 }
+                
+                // Extract video dates
+                const videoDate = extractVideoDate(video);
+                if (videoDate) {
+                    allVideoDates.push(videoDate);
+                    // Store date on video object for filtering
+                    video._extractedDate = videoDate;
+                }
             });
+            
+            // Sort dates and find min/max
+            allVideoDates.sort();
+            const minDate = allVideoDates[0] || '2005-01-01';
+            const maxDate = allVideoDates[allVideoDates.length - 1] || new Date().toISOString().split('T')[0];
             
             console.log(`Auto-complete data extracted:
                 Concepts: ${allConcepts.size}
                 Fields: ${allFields.size}
-                Workshop Codes: ${allWorkshopCodes.size}`);
+                Workshop Codes: ${allWorkshopCodes.size}
+                Video Dates: ${allVideoDates.length} (${minDate} to ${maxDate})`);
         }
         
         function getSuggestions(query) {
@@ -1888,6 +2078,103 @@
                 }
             });
         }
+        
+        function setDatePreset(preset) {
+            const today = new Date();
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            let startDate, endDate;
+            
+            switch(preset) {
+                case 'lastMonth':
+                    endDate = new Date();
+                    startDate = new Date();
+                    startDate.setMonth(startDate.getMonth() - 1);
+                    break;
+                case 'lastYear':
+                    endDate = new Date();
+                    startDate = new Date();
+                    startDate.setFullYear(startDate.getFullYear() - 1);
+                    break;
+                case '2024':
+                    startDate = new Date('2024-01-01');
+                    endDate = new Date('2024-12-31');
+                    break;
+                case '2023':
+                    startDate = new Date('2023-01-01');
+                    endDate = new Date('2023-12-31');
+                    break;
+                case '2022':
+                    startDate = new Date('2022-01-01');
+                    endDate = new Date('2022-12-31');
+                    break;
+            }
+            
+            startDateInput.value = startDate.toISOString().split('T')[0];
+            endDateInput.value = endDate.toISOString().split('T')[0];
+            
+            // Auto-apply the filter
+            applyDateFilter();
+        }
+        
+        function applyDateFilter() {
+            selectedStartDate = document.getElementById('startDate').value;
+            selectedEndDate = document.getElementById('endDate').value;
+            
+            console.log(`Applying date filter: ${selectedStartDate} to ${selectedEndDate}`);
+            
+            // Re-run the current search/filter
+            performSearch();
+        }
+        
+        function clearDateFilter() {
+            selectedStartDate = null;
+            selectedEndDate = null;
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            
+            console.log('Cleared date filter');
+            
+            // Re-run the current search/filter
+            performSearch();
+        }
+        
+        function filterVideosByDate(videos) {
+            if (!selectedStartDate && !selectedEndDate) {
+                return videos; // No date filter applied
+            }
+            
+            return videos.filter(video => {
+                const videoDate = video._extractedDate;
+                if (!videoDate) return false; // Skip videos without dates
+                
+                // Check if video date is within selected range
+                if (selectedStartDate && videoDate < selectedStartDate) {
+                    return false;
+                }
+                if (selectedEndDate && videoDate > selectedEndDate) {
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+        
+        function initializeDatePicker() {
+            // Set min and max dates for date inputs
+            if (allVideoDates.length > 0) {
+                const minDate = allVideoDates[0];
+                const maxDate = allVideoDates[allVideoDates.length - 1];
+                
+                document.getElementById('startDate').min = minDate;
+                document.getElementById('startDate').max = maxDate;
+                document.getElementById('endDate').min = minDate;
+                document.getElementById('endDate').max = maxDate;
+                
+                console.log(`Date picker initialized: ${minDate} to ${maxDate}`);
+            }
+        }
 
         function updateFilterCounts() {
             document.getElementById('count-all').textContent = allVideos.length;
@@ -2020,6 +2307,9 @@
                 }
             }
             
+            // Apply date filtering
+            filtered = filterVideosByDate(filtered);
+            
             showVideos(filtered);
         }
 
@@ -2113,6 +2403,9 @@
             
             // Reset feature filters
             document.querySelectorAll('.filter-item[data-feature]').forEach(f => f.classList.remove('active'));
+            
+            // Reset date filters
+            clearDateFilter();
             
             // Clear search metadata from videos
             const cleanVideos = allVideos.map(video => {
