@@ -262,4 +262,4 @@ This platform represents more than video hosting—it's a **global research equi
 
 The combination of BIRS's unique content archive with AI-powered discovery creates an opportunity to **democratize access to mathematical research** while **accelerating the pace of scientific discovery** through intelligent content analysis and global collaboration tools.
 
-This isn't just about making videos searchable—it's about creating the world's most advanced platform for **equitable access to mathematical research**, powered by the latest advances in AI and designed specifically to overcome the travel and visa barriers that currently limit global academic participation.
+This isn't just about making videos searchable—it's about creating an advanced platform for **equitable access to mathematical research**, powered by the latest advances in AI and designed specifically to overcome the travel and visa barriers that currently limit global academic participation.
