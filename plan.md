@@ -104,7 +104,7 @@
   - Contextual snippet previews
   - Timeline visualization of search hits
 - [ ] **Advanced query syntax**
-  - [x] Boolean operators (AND, OR, NOT) ✅ COMPLETED (Dec 2024)
+  - [x] Boolean operators (AND, OR, NOT)
   - [ ] Phrase matching with quotes
   - [ ] Wildcard and regex support
 
@@ -250,11 +250,11 @@
 4. **Professional UI/UX** - BIRS branded, responsive design with gradient thumbnails and mathematical formulas
 5. **Comprehensive filtering** - Category pills, sidebar filters, year filtering, content type filtering
 
-### 🔄 IMMEDIATE NEXT PRIORITIES (Updated Dec 2024)
+### 🔄 IMMEDIATE NEXT PRIORITIES (Updated June 2025)
 1. ✅ **Pagination/infinite scroll** - COMPLETED with 30 videos per page loading
 2. ✅ **Auto-complete search suggestions** - COMPLETED with concepts, workshop codes, and research fields
 3. ✅ **Boolean search operators** (AND, OR, NOT) - COMPLETED for advanced queries
-4. **Sort options** (relevance, date, speaker, title) - Next priority
+4. ✅ **Sort options** (relevance, date, speaker, title) - Next priority
 5. **Embedded video player** with transcript synchronization
 
 ### 📊 CURRENT METRICS
