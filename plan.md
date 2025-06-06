@@ -53,7 +53,7 @@
 - [x] **Mobile optimization** with responsive design
 - [x] **Advanced filtering UI** with sidebar and category pills
 - [x] **Pagination or infinite scroll** ✅ COMPLETED (Dec 2024) - Implemented infinite scroll with 30 videos per page
-- [ ] **Sort options** (relevance, date, speaker, title)
+- [x] **Sort options** (relevance, date, speaker, title)
 - [ ] **Bookmarking system** (localStorage based)
 - [ ] **Share search URLs** with query parameters
 - [ ] **Recently viewed videos** tracking
