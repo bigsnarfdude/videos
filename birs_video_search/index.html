@@ -123,6 +123,94 @@
         .search-btn:hover {
             background: #f0f0f0;
         }
+        
+        .search-help-btn {
+            width: 32px;
+            height: 38px;
+            padding: 0;
+            background: #2c5aa0;
+            border: 1px solid #2c5aa0;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-left: 8px;
+            transition: background 0.2s;
+        }
+        
+        .search-help-btn:hover {
+            background: #1e3f73;
+        }
+        
+        .search-help {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1001;
+            width: 320px;
+        }
+        
+        .search-help-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .close-help {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-help:hover {
+            color: #333;
+        }
+        
+        .search-help-content {
+            padding: 16px;
+        }
+        
+        .search-help-content p {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .search-help-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .search-help-content strong {
+            color: #2c5aa0;
+        }
+        
+        .search-help-content em {
+            color: #666;
+            font-size: 13px;
+            display: block;
+            margin-top: 4px;
+            background: #f8f9fa;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
 
         /* YouTube-style category pills */
         .category-pills {
@@ -819,8 +907,28 @@
         <div class="search-container">
             <input type="text" class="search-input" placeholder="Search research videos..." id="searchInput">
             <button class="search-btn" onclick="performSearch()">🔍</button>
+            <button class="search-help-btn" onclick="toggleSearchHelp()" title="Search Help">?</button>
             <div class="search-suggestions" id="searchSuggestions">
                 <!-- Suggestions will be populated here -->
+            </div>
+            <div class="search-help" id="searchHelp" style="display: none;">
+                <div class="search-help-header">
+                    <strong>Boolean Search Operators</strong>
+                    <button class="close-help" onclick="toggleSearchHelp()">×</button>
+                </div>
+                <div class="search-help-content">
+                    <p><strong>AND</strong> - Both terms must appear<br>
+                    <em>Example: topology AND algebra</em></p>
+                    
+                    <p><strong>OR</strong> - Either term can appear<br>
+                    <em>Example: statistics OR biostatistics</em></p>
+                    
+                    <p><strong>NOT</strong> - Exclude terms<br>
+                    <em>Example: machine learning NOT neural</em></p>
+                    
+                    <p><strong>Combine operators:</strong><br>
+                    <em>Example: (topology OR geometry) AND NOT algebraic</em></p>
+                </div>
             </div>
         </div>
     </header>
@@ -2207,6 +2315,193 @@
             document.getElementById('count-genetics').textContent = geneticsCount;
         }
 
+        // Boolean search parser
+        function parseBooleanSearch(query) {
+            // Remove extra spaces and normalize
+            query = query.trim().replace(/\s+/g, ' ');
+            
+            // Check if query contains boolean operators
+            const hasBoolean = /\b(AND|OR|NOT)\b/.test(query);
+            
+            if (!hasBoolean) {
+                return { type: 'simple', term: query };
+            }
+            
+            // Handle parentheses for grouping
+            if (query.includes('(')) {
+                // Find the outermost parentheses
+                let depth = 0;
+                let start = -1;
+                let end = -1;
+                
+                for (let i = 0; i < query.length; i++) {
+                    if (query[i] === '(') {
+                        if (depth === 0) start = i;
+                        depth++;
+                    } else if (query[i] === ')') {
+                        depth--;
+                        if (depth === 0) {
+                            end = i;
+                            break;
+                        }
+                    }
+                }
+                
+                if (start !== -1 && end !== -1) {
+                    const before = query.substring(0, start).trim();
+                    const inside = query.substring(start + 1, end).trim();
+                    const after = query.substring(end + 1).trim();
+                    
+                    // Parse the content inside parentheses
+                    const insideParsed = parseBooleanSearch(inside);
+                    
+                    // If there's content before or after, we need to combine them
+                    if (before || after) {
+                        // Reconstruct the query with the parsed inside part
+                        let reconstructed = '';
+                        if (before) {
+                            // Check if before ends with an operator
+                            if (/\b(AND|OR|NOT)\s*$/.test(before)) {
+                                return parseBooleanSearch(before + ' __GROUP__' + after.replace(/^\s*(AND|OR|NOT)\s*/, ' $1 '), insideParsed);
+                            }
+                            reconstructed = before + ' ';
+                        }
+                        reconstructed += '__GROUP__';
+                        if (after) {
+                            reconstructed += ' ' + after;
+                        }
+                        
+                        // Replace __GROUP__ with the parsed content when evaluating
+                        const result = parseBooleanSearch(reconstructed);
+                        result._groupContent = insideParsed;
+                        return result;
+                    } else {
+                        return insideParsed;
+                    }
+                }
+            }
+            
+            // Parse NOT operators first (highest precedence)
+            const notParts = query.split(/\s+NOT\s+/i);
+            
+            if (notParts.length > 1) {
+                const baseTerm = parseBooleanSearch(notParts[0]);
+                const notTerms = notParts.slice(1).map(term => parseBooleanSearch(term.trim()));
+                return {
+                    type: 'not',
+                    base: baseTerm,
+                    exclude: notTerms
+                };
+            }
+            
+            // Parse OR operators (lower precedence than AND)
+            const orParts = query.split(/\s+OR\s+/i);
+            
+            if (orParts.length > 1) {
+                return {
+                    type: 'or',
+                    terms: orParts.map(term => parseBooleanSearch(term.trim()))
+                };
+            }
+            
+            // Parse AND operators
+            const andParts = query.split(/\s+AND\s+/i);
+            
+            if (andParts.length > 1) {
+                return {
+                    type: 'and',
+                    terms: andParts.map(term => parseBooleanSearch(term.trim()))
+                };
+            }
+            
+            // Check for __GROUP__ placeholder
+            if (query === '__GROUP__') {
+                return { type: 'group' };
+            }
+            
+            // Simple term
+            return { type: 'simple', term: query };
+        }
+        
+        // Evaluate boolean search on a single video
+        function evaluateBooleanSearch(video, parsedQuery, fuseInstance) {
+            // Handle group placeholders
+            if (parsedQuery._groupContent) {
+                const modifiedQuery = JSON.parse(JSON.stringify(parsedQuery));
+                // Replace group placeholders with actual content
+                const replaceGroups = (obj) => {
+                    if (obj.type === 'group') {
+                        return parsedQuery._groupContent;
+                    }
+                    if (obj.terms) {
+                        obj.terms = obj.terms.map(replaceGroups);
+                    }
+                    if (obj.base) {
+                        obj.base = replaceGroups(obj.base);
+                    }
+                    if (obj.exclude) {
+                        obj.exclude = obj.exclude.map(replaceGroups);
+                    }
+                    return obj;
+                };
+                const finalQuery = replaceGroups(modifiedQuery);
+                return evaluateBooleanSearch(video, finalQuery, fuseInstance);
+            }
+            
+            switch (parsedQuery.type) {
+                case 'simple':
+                    // Use Fuse.js for fuzzy matching
+                    const results = fuseInstance.search(parsedQuery.term, { limit: 1000 });
+                    const match = results.find(r => r.item.id === video.id);
+                    return match ? { matched: true, score: match.score, matches: match.matches } : { matched: false };
+                    
+                case 'and':
+                    // All terms must match
+                    const andResults = parsedQuery.terms.map(term => evaluateBooleanSearch(video, term, fuseInstance));
+                    const allMatch = andResults.every(r => r.matched);
+                    if (allMatch) {
+                        // Average the scores
+                        const avgScore = andResults.reduce((sum, r) => sum + (r.score || 0), 0) / andResults.length;
+                        return { matched: true, score: avgScore, matches: andResults.flatMap(r => r.matches || []) };
+                    }
+                    return { matched: false };
+                    
+                case 'or':
+                    // At least one term must match
+                    const orResults = parsedQuery.terms.map(term => evaluateBooleanSearch(video, term, fuseInstance));
+                    const anyMatch = orResults.filter(r => r.matched);
+                    if (anyMatch.length > 0) {
+                        // Use best score
+                        const bestScore = Math.min(...anyMatch.map(r => r.score || 1));
+                        return { matched: true, score: bestScore, matches: anyMatch.flatMap(r => r.matches || []) };
+                    }
+                    return { matched: false };
+                    
+                case 'not':
+                    // Base must match, but exclude terms must not
+                    const baseResult = evaluateBooleanSearch(video, parsedQuery.base, fuseInstance);
+                    if (!baseResult.matched) return { matched: false };
+                    
+                    // Check if any exclude terms match
+                    const excludeMatches = parsedQuery.exclude.some(term => 
+                        evaluateBooleanSearch(video, term, fuseInstance).matched
+                    );
+                    
+                    if (excludeMatches) {
+                        return { matched: false };
+                    }
+                    
+                    return baseResult;
+                    
+                case 'group':
+                    // This should have been replaced above
+                    return { matched: false };
+                    
+                default:
+                    return { matched: false };
+            }
+        }
+
         function performSearch() {
             const searchTerm = document.getElementById('searchInput').value.trim();
             console.log('Performing search for:', searchTerm);
@@ -2214,19 +2509,24 @@
             let filtered = allVideos;
             
             if (searchTerm && fuse) {
-                // Use Fuse.js for fuzzy search
-                const searchResults = fuse.search(searchTerm);
-                console.log(`Found ${searchResults.length} fuzzy matches for "${searchTerm}"`);
+                // Parse the search query for boolean operators
+                const parsedQuery = parseBooleanSearch(searchTerm);
+                console.log('Parsed query:', parsedQuery);
                 
-                // Extract the actual video objects from search results
-                // and store the score for potential use
-                filtered = searchResults.map(result => {
-                    // Add search score to video object for ranking display
-                    const video = { ...result.item };
-                    video._searchScore = result.score;
+                if (parsedQuery.type === 'simple') {
+                    // Use original Fuse.js search for simple queries
+                    const searchResults = fuse.search(searchTerm);
+                    console.log(`Found ${searchResults.length} fuzzy matches for "${searchTerm}"`);
                     
-                    // Calculate base relevance from Fuse.js score
-                    let baseRelevance = (1 - result.score) * 100;
+                    // Extract the actual video objects from search results
+                    // and store the score for potential use
+                    filtered = searchResults.map(result => {
+                        // Add search score to video object for ranking display
+                        const video = { ...result.item };
+                        video._searchScore = result.score;
+                        
+                        // Calculate base relevance from Fuse.js score
+                        let baseRelevance = (1 - result.score) * 100;
                     
                     // Count unique fields that matched
                     const matchedFields = new Set();
@@ -2292,18 +2592,70 @@
                     }
                     
                     return video;
-                });
-                
-                // If fuzzy search returns no results, show a message
-                if (filtered.length === 0) {
-                    console.log('No fuzzy matches found, trying exact match fallback...');
-                    // Fallback to exact match for very specific searches
-                    const searchLower = searchTerm.toLowerCase();
-                    filtered = allVideos.filter(function(video) {
-                        const titleMatch = (video.title || '').toLowerCase().includes(searchLower);
-                        const speakerMatch = ((video.speaker && video.speaker.name) || '').toLowerCase().includes(searchLower);
-                        return titleMatch || speakerMatch;
                     });
+                    
+                    // If fuzzy search returns no results, show a message
+                    if (filtered.length === 0) {
+                        console.log('No fuzzy matches found, trying exact match fallback...');
+                        // Fallback to exact match for very specific searches
+                        const searchLower = searchTerm.toLowerCase();
+                        filtered = allVideos.filter(function(video) {
+                            const titleMatch = (video.title || '').toLowerCase().includes(searchLower);
+                            const speakerMatch = ((video.speaker && video.speaker.name) || '').toLowerCase().includes(searchLower);
+                            return titleMatch || speakerMatch;
+                        });
+                    }
+                } else {
+                    // Boolean search
+                    console.log('Performing boolean search...');
+                    
+                    const searchResults = [];
+                    
+                    // Evaluate each video against the boolean query
+                    allVideos.forEach(video => {
+                        const result = evaluateBooleanSearch(video, parsedQuery, fuse);
+                        if (result.matched) {
+                            const videoWithScore = { ...video };
+                            videoWithScore._searchScore = result.score || 0;
+                            
+                            // Calculate relevance for boolean search
+                            let relevance = (1 - (result.score || 0)) * 100;
+                            
+                            // Count matched fields
+                            const matchedFields = new Set();
+                            if (result.matches) {
+                                result.matches.forEach(match => {
+                                    if (match && match.key) {
+                                        const keyParts = match.key.split('.');
+                                        const fieldName = keyParts[keyParts.length - 1];
+                                        matchedFields.add(fieldName);
+                                    }
+                                });
+                            }
+                            
+                            // Boost for multiple field matches
+                            const fieldCount = matchedFields.size;
+                            if (fieldCount > 1) {
+                                const multiFieldBoost = Math.min(fieldCount * 8, 30);
+                                relevance = Math.min(relevance + multiFieldBoost, 95);
+                            }
+                            
+                            videoWithScore._searchRelevance = Math.min(Math.round(relevance), 98);
+                            videoWithScore._matchedFields = Array.from(matchedFields);
+                            
+                            searchResults.push(videoWithScore);
+                        }
+                    });
+                    
+                    // Sort by relevance
+                    searchResults.sort((a, b) => {
+                        const scoreA = a._searchScore || 1;
+                        const scoreB = b._searchScore || 1;
+                        return scoreA - scoreB; // Lower score is better in Fuse.js
+                    });
+                    
+                    filtered = searchResults;
+                    console.log(`Boolean search found ${filtered.length} matches`);
                 }
             }
             
@@ -2378,6 +2730,15 @@
 
         function closeModal() {
             document.getElementById('modal').classList.remove('show');
+        }
+        
+        function toggleSearchHelp() {
+            const helpDiv = document.getElementById('searchHelp');
+            if (helpDiv.style.display === 'none' || !helpDiv.style.display) {
+                helpDiv.style.display = 'block';
+            } else {
+                helpDiv.style.display = 'none';
+            }
         }
 
         function clearAllFilters() {
@@ -2504,6 +2865,16 @@
             searchInput.addEventListener('input', function() {
                 const query = this.value.trim();
                 selectedSuggestionIndex = -1; // Reset selection
+                
+                // Check if Boolean operators are present and update visual feedback
+                const hasBoolean = /\b(AND|OR|NOT)\b/i.test(query);
+                if (hasBoolean) {
+                    this.style.borderColor = '#2c5aa0';
+                    this.style.boxShadow = '0 0 0 2px rgba(44, 90, 160, 0.2)';
+                } else {
+                    this.style.borderColor = '';
+                    this.style.boxShadow = '';
+                }
                 
                 clearTimeout(window.searchTimeout);
                 clearTimeout(window.suggestionTimeout);
