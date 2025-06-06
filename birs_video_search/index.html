@@ -389,6 +389,45 @@
             font-size: 16px;
             color: #666;
             font-weight: 400;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sort-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .sort-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .sort-select {
+            padding: 6px 30px 6px 12px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #fff;
+            color: #333;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1.5 4.5h9z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            transition: border-color 0.2s;
+        }
+        
+        .sort-select:hover {
+            border-color: #2c5aa0;
+        }
+        
+        .sort-select:focus {
+            outline: none;
+            border-color: #2c5aa0;
+            box-shadow: 0 0 0 2px rgba(44, 90, 160, 0.1);
         }
         
         .video-grid {
@@ -1061,24 +1100,36 @@
 
         <main class="content">
             <div class="results-header" id="resultsHeader">
-                <span id="resultsText">Loading videos...</span>
-                <div id="loadingSpinner" style="display: inline-block; margin-left: 10px;">
-                    <style>
-                        @keyframes spin {
-                            0% { transform: rotate(0deg); }
-                            100% { transform: rotate(360deg); }
-                        }
-                        .spinner {
-                            display: inline-block;
-                            width: 16px;
-                            height: 16px;
-                            border: 2px solid #f3f3f3;
-                            border-top: 2px solid #2c5aa0;
-                            border-radius: 50%;
-                            animation: spin 1s linear infinite;
-                        }
-                    </style>
-                    <div class="spinner"></div>
+                <div>
+                    <span id="resultsText">Loading videos...</span>
+                    <div id="loadingSpinner" style="display: inline-block; margin-left: 10px;">
+                        <style>
+                            @keyframes spin {
+                                0% { transform: rotate(0deg); }
+                                100% { transform: rotate(360deg); }
+                            }
+                            .spinner {
+                                display: inline-block;
+                                width: 16px;
+                                height: 16px;
+                                border: 2px solid #f3f3f3;
+                                border-top: 2px solid #2c5aa0;
+                                border-radius: 50%;
+                                animation: spin 1s linear infinite;
+                            }
+                        </style>
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                <div class="sort-container">
+                    <span class="sort-label">Sort by:</span>
+                    <select class="sort-select" id="sortSelect" onchange="handleSortChange()">
+                        <option value="relevance">Relevance</option>
+                        <option value="date-newest">Date (Newest First)</option>
+                        <option value="date-oldest">Date (Oldest First)</option>
+                        <option value="speaker">Speaker (A-Z)</option>
+                        <option value="title">Title (A-Z)</option>
+                    </select>
                 </div>
             </div>
             <div class="video-grid" id="videoGrid">
@@ -1133,6 +1184,10 @@
         let selectedStartDate = null;
         let selectedEndDate = null;
         let allVideoDates = []; // All video dates for min/max calculation
+        
+        // Sorting variables
+        let currentSortOrder = 'relevance';
+        let lastSearchQuery = ''; // Track the last search query for relevance sorting
 
         async function loadVideos() {
             try {
@@ -1542,6 +1597,9 @@
             const grid = document.getElementById('videoGrid');
             const header = document.getElementById('resultsHeader');
             
+            // Apply current sort order
+            sortVideos(videos);
+            
             // Store current video list and reset display count
             currentVideos = videos;
             displayedCount = 0;
@@ -1758,6 +1816,64 @@
             }, 300); // Small delay for smoother experience
         }
         
+        // Sorting functions
+        function handleSortChange() {
+            const sortSelect = document.getElementById('sortSelect');
+            currentSortOrder = sortSelect.value;
+            
+            // Apply sorting to current videos
+            sortVideos(currentVideos);
+            
+            // Redisplay videos
+            showVideos(currentVideos, false); // Don't reset scroll
+        }
+        
+        function sortVideos(videos) {
+            switch (currentSortOrder) {
+                case 'relevance':
+                    // If we have search scores, sort by them (descending)
+                    if (videos.some(v => v._searchScore !== undefined)) {
+                        videos.sort((a, b) => (b._searchScore || 0) - (a._searchScore || 0));
+                    }
+                    // Otherwise, keep original order
+                    break;
+                    
+                case 'date-newest':
+                    videos.sort((a, b) => {
+                        const dateA = new Date(a.date || '1900-01-01');
+                        const dateB = new Date(b.date || '1900-01-01');
+                        return dateB - dateA;
+                    });
+                    break;
+                    
+                case 'date-oldest':
+                    videos.sort((a, b) => {
+                        const dateA = new Date(a.date || '1900-01-01');
+                        const dateB = new Date(b.date || '1900-01-01');
+                        return dateA - dateB;
+                    });
+                    break;
+                    
+                case 'speaker':
+                    videos.sort((a, b) => {
+                        const nameA = (a.name || '').toLowerCase();
+                        const nameB = (b.name || '').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
+                    break;
+                    
+                case 'title':
+                    videos.sort((a, b) => {
+                        const titleA = (a.title || '').toLowerCase();
+                        const titleB = (b.title || '').toLowerCase();
+                        return titleA.localeCompare(titleB);
+                    });
+                    break;
+            }
+            
+            return videos;
+        }
+        
         function checkAndLoadMore() {
             // Check if we should load more videos based on scroll position
             const scrollPosition = window.innerHeight + window.scrollY;
@@ -1780,6 +1896,12 @@
         function filterByCategory(category) {
             console.log('Filtering by category:', category);
             let filtered = allVideos;
+            
+            // Reset sort to date-newest when not searching
+            if (currentSortOrder === 'relevance') {
+                currentSortOrder = 'date-newest';
+                document.getElementById('sortSelect').value = 'date-newest';
+            }
             
             if (category !== 'all') {
                 filtered = allVideos.filter(function(video) {
@@ -2505,10 +2627,14 @@
         function performSearch() {
             const searchTerm = document.getElementById('searchInput').value.trim();
             console.log('Performing search for:', searchTerm);
+            lastSearchQuery = searchTerm;
             
             let filtered = allVideos;
             
             if (searchTerm && fuse) {
+                // Set sort to relevance when searching
+                currentSortOrder = 'relevance';
+                document.getElementById('sortSelect').value = 'relevance';
                 // Parse the search query for boolean operators
                 const parsedQuery = parseBooleanSearch(searchTerm);
                 console.log('Parsed query:', parsedQuery);
@@ -2656,6 +2782,12 @@
                     
                     filtered = searchResults;
                     console.log(`Boolean search found ${filtered.length} matches`);
+                }
+            } else {
+                // No search term - reset sort to date if it was on relevance
+                if (currentSortOrder === 'relevance') {
+                    currentSortOrder = 'date-newest';
+                    document.getElementById('sortSelect').value = 'date-newest';
                 }
             }
             
