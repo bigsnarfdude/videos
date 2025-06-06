@@ -26,6 +26,7 @@
 - [x] **Infinite scroll implementation** - Progressive loading with 30 videos per page (Dec 2024)
 - [x] **MP3 download buttons** - Audio downloads from audio.birs.ca (Dec 2024)
 - [x] **Auto-complete search suggestions** - Discovery-focused with concepts, workshop codes, and fields (Dec 2024)
+- [x] **Boolean search operators** - AND, OR, NOT with parentheses support (Dec 2024)
 
 ---
 
@@ -46,7 +47,7 @@
 ### Remaining Search Tasks
 - [x] **Auto-complete suggestions** ✅ COMPLETED (Dec 2024) - Concepts, workshop codes, and research fields
 - [x] **Date range picker** for workshop dates
-- [x] **Boolean search operators** (AND, OR, NOT)
+- [x] **Boolean search operators** (AND, OR, NOT) ✅ COMPLETED (Dec 2024)
 
 ### UI/UX Enhancements ✅ MOSTLY COMPLETE
 - [x] **Search debouncing** implemented (300ms delay)
@@ -103,9 +104,9 @@
   - Contextual snippet previews
   - Timeline visualization of search hits
 - [ ] **Advanced query syntax**
-  - Boolean operators (AND, OR, NOT)
-  - Phrase matching with quotes
-  - Wildcard and regex support
+  - [x] Boolean operators (AND, OR, NOT) ✅ COMPLETED (Dec 2024)
+  - [ ] Phrase matching with quotes
+  - [ ] Wildcard and regex support
 
 ### Semantic Search - FUTURE ENHANCEMENT
 - [ ] **Vector embeddings generation**
@@ -252,9 +253,9 @@
 ### 🔄 IMMEDIATE NEXT PRIORITIES (Updated Dec 2024)
 1. ✅ **Pagination/infinite scroll** - COMPLETED with 30 videos per page loading
 2. ✅ **Auto-complete search suggestions** - COMPLETED with concepts, workshop codes, and research fields
-3. **Sort options** (relevance, date, speaker, title) - Next priority
-4. **Embedded video player** with transcript synchronization
-5. **Boolean search operators** for advanced queries
+3. ✅ **Boolean search operators** (AND, OR, NOT) - COMPLETED for advanced queries
+4. **Sort options** (relevance, date, speaker, title) - Next priority
+5. **Embedded video player** with transcript synchronization
 
 ### 📊 CURRENT METRICS
 - **Videos processed**: 10,986+
