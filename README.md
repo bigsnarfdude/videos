@@ -76,4 +76,6 @@ Feel free to submit issues or pull requests. Main areas for improvement:
 
 ## License
 
-This is an unofficial interface for accessing publicly available BIRS videos. All video content belongs to BIRS and the respective speakers.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Note: This is an unofficial interface for accessing publicly available BIRS videos. All video content belongs to BIRS and the respective speakers.
