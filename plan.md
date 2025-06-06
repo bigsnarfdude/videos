@@ -46,7 +46,7 @@
 ### Remaining Search Tasks
 - [x] **Auto-complete suggestions** ✅ COMPLETED (Dec 2024) - Concepts, workshop codes, and research fields
 - [x] **Date range picker** for workshop dates
-- [ ] **Boolean search operators** (AND, OR, NOT)
+- [x] **Boolean search operators** (AND, OR, NOT)
 
 ### UI/UX Enhancements ✅ MOSTLY COMPLETE
 - [x] **Search debouncing** implemented (300ms delay)
