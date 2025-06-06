@@ -4,7 +4,7 @@ A better way to search and browse video lectures from the Banff International Re
 
 ## What This Is
 
-BIRS has over 16,000 recorded mathematics lectures from workshops dating back to 2003, but they're difficult to find on the current website. This project makes those videos searchable and browsable with a modern interface.
+BIRS has over 16,000+ recorded mathematics lectures from workshops dating back to 2003, but they're difficult to find on the current website. This project makes those videos searchable and browsable with a modern interface.
 
 ## Features
 
