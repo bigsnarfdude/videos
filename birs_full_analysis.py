@@ -11,7 +11,7 @@ import sys
 VIDEO = sys.argv[1] if len(sys.argv) > 1 else "/tmp/test_video.mp4"
 FRAMES_DIR = "/tmp/full_analysis_frames"
 VISION_MODEL = "ministral-3:8b"
-SUMMARY_MODEL = "gpt-oss:20b"
+SUMMARY_MODEL = "gpt-oss:120b"
 
 print("=" * 60)
 print("BIRS VIDEO FULL ANALYSIS")
@@ -26,6 +26,58 @@ result = subprocess.run(
 )
 duration = float(result.stdout.strip())
 print("\nVideo duration: {:.1f} minutes".format(duration/60))
+
+# Extract audio and transcribe with Whisper
+print("\n" + "=" * 60)
+print("AUDIO TRANSCRIPTION")
+print("=" * 60)
+
+AUDIO_PATH = "/tmp/birs_audio.mp3"
+WHISPER_MODEL = "large"
+
+print("Extracting audio...")
+subprocess.run(
+    "ffmpeg -i {} -vn -acodec libmp3lame -q:a 2 {} -y 2>/dev/null".format(VIDEO, AUDIO_PATH),
+    shell=True
+)
+
+# Find whisper binary
+whisper_paths = ["/home/vincent/.local/bin/whisper", "whisper", "/usr/local/bin/whisper"]
+whisper_cmd = None
+for path in whisper_paths:
+    result_check = subprocess.run(["which", path], capture_output=True)
+    if result_check.returncode == 0 or os.path.exists(path):
+        whisper_cmd = path
+        break
+
+transcript = ""
+whisper_time = 0
+if whisper_cmd:
+    print("Transcribing with Whisper {}...".format(WHISPER_MODEL))
+    whisper_start = time.time()
+    whisper_result = subprocess.run(
+        [whisper_cmd, AUDIO_PATH, "--model", WHISPER_MODEL, "--output_format", "json", "--output_dir", "/tmp"],
+        capture_output=True, text=True
+    )
+    whisper_time = time.time() - whisper_start
+
+    # Read transcript
+    json_path = "/tmp/birs_audio.json"
+    if os.path.exists(json_path):
+        with open(json_path) as f:
+            whisper_data = json.load(f)
+        transcript = whisper_data.get("text", "")
+    else:
+        txt_path = "/tmp/birs_audio.txt"
+        if os.path.exists(txt_path):
+            with open(txt_path) as f:
+                transcript = f.read()
+
+    print("Transcript: {} chars ({:.1f}s)".format(len(transcript), whisper_time))
+    if transcript:
+        print("Preview: {}...".format(transcript[:200]))
+else:
+    print("WARNING: Whisper not found, skipping transcription")
 
 # Scene detection: find changes, then capture 4 seconds later (after slide settles)
 os.makedirs(FRAMES_DIR, exist_ok=True)
@@ -179,18 +231,22 @@ all_content = "\n\n".join([
     for f in successful
 ])
 
-summary_prompt = """Analyze these timestamped frame descriptions from a BIRS mathematics lecture.
+summary_prompt = """Analyze this BIRS mathematics lecture using both AUDIO TRANSCRIPT and VISUAL FRAME analysis.
 
-FRAME ANALYSIS:
+=== AUDIO TRANSCRIPT ===
+{}
+
+=== VISUAL FRAME ANALYSIS ===
 {}
 
 Create:
 1. **METADATA** (JSON): title, speaker, topic, key_concepts (list of 5-10)
-2. **EXECUTIVE SUMMARY** (2 paragraphs)
+2. **EXECUTIVE SUMMARY** (2-3 paragraphs combining what was SAID and what was SHOWN)
 3. **LECTURE OUTLINE** with timestamps
 4. **KEY VISUAL CONTENT**: Important equations, diagrams, slides
-5. **QUALITY ASSESSMENT**: Rate the visual content coverage (1-10)
-""".format(all_content[:12000])
+5. **KEY SPOKEN CONTENT**: Important quotes, explanations, definitions
+6. **QUALITY ASSESSMENT**: Rate the combined audio+visual coverage (1-10)
+""".format(transcript[:8000], all_content[:8000])
 
 start = time.time()
 response = ollama.chat(
@@ -204,17 +260,20 @@ print("\nSummary generated in {:.1f}s".format(summary_time))
 print("\n" + summary)
 
 # Final stats
+total_time = whisper_time + total_vision_time + summary_time
 print("\n" + "=" * 60)
 print("FINAL STATISTICS")
 print("=" * 60)
 print("Video duration: {:.1f} min".format(duration/60))
+print("Transcript: {} chars".format(len(transcript)))
 print("Frames analyzed: {}".format(len(successful)))
+print("Whisper time: {:.1f}s".format(whisper_time))
 print("Vision model: {}".format(VISION_MODEL))
 print("Vision time: {:.1f}s ({:.1f}s/frame)".format(total_vision_time, total_vision_time/len(successful)))
 print("Summary model: {}".format(SUMMARY_MODEL))
 print("Summary time: {:.1f}s".format(summary_time))
-print("Total processing: {:.1f}s".format(total_vision_time + summary_time))
-print("Processing ratio: {:.2f}x realtime".format((total_vision_time + summary_time)/duration))
+print("Total processing: {:.1f}s".format(total_time))
+print("Processing ratio: {:.2f}x realtime".format(total_time/duration))
 
 # Save results
 output = {
@@ -222,9 +281,13 @@ output = {
     "duration_sec": duration,
     "vision_model": VISION_MODEL,
     "summary_model": SUMMARY_MODEL,
+    "whisper_model": WHISPER_MODEL,
     "frames_analyzed": len(successful),
+    "transcript_chars": len(transcript),
+    "whisper_time": whisper_time,
     "total_vision_time": total_vision_time,
     "summary_time": summary_time,
+    "transcript": transcript,
     "frame_results": frame_results,
     "summary": summary
 }
