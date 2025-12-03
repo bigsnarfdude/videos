@@ -9,13 +9,23 @@ import json
 import sys
 
 VIDEO = sys.argv[1] if len(sys.argv) > 1 else "/tmp/test_video.mp4"
-FRAMES_DIR = "/tmp/full_analysis_frames"
+VIDEO_NAME = os.path.splitext(os.path.basename(VIDEO))[0]
+OUTPUT_BASE = os.path.expanduser("~/vlm_output")
+FRAMES_DIR = os.path.join(OUTPUT_BASE, "frames", VIDEO_NAME)
+TRANSCRIPTS_DIR = os.path.join(OUTPUT_BASE, "transcripts")
+SUMMARIES_DIR = os.path.join(OUTPUT_BASE, "summaries")
+MP3_DIR = os.path.join(OUTPUT_BASE, "mp3")
 VISION_MODEL = "ministral-3:8b"
 SUMMARY_MODEL = "gpt-oss:120b"
+
+# Create output directories
+for d in [FRAMES_DIR, TRANSCRIPTS_DIR, SUMMARIES_DIR, MP3_DIR]:
+    os.makedirs(d, exist_ok=True)
 
 print("=" * 60)
 print("BIRS VIDEO FULL ANALYSIS")
 print("Model:", VISION_MODEL)
+print("Output:", OUTPUT_BASE)
 print("=" * 60)
 
 # Get video duration
@@ -32,7 +42,8 @@ print("\n" + "=" * 60)
 print("AUDIO TRANSCRIPTION")
 print("=" * 60)
 
-AUDIO_PATH = "/tmp/birs_audio.mp3"
+AUDIO_PATH = os.path.join(MP3_DIR, "{}.mp3".format(VIDEO_NAME))
+TRANSCRIPT_PATH = os.path.join(TRANSCRIPTS_DIR, "{}.json".format(VIDEO_NAME))
 WHISPER_MODEL = "large"
 
 print("Extracting audio...")
@@ -62,7 +73,7 @@ if whisper_cmd:
     print("Transcribing with Whisper {} (GPU)...".format(WHISPER_MODEL))
     whisper_start = time.time()
     whisper_result = subprocess.run(
-        [whisper_cmd, AUDIO_PATH, "--model", WHISPER_MODEL, "--output_format", "json", "--output_dir", "/tmp"],
+        [whisper_cmd, AUDIO_PATH, "--model", WHISPER_MODEL, "--output_format", "json", "--output_dir", TRANSCRIPTS_DIR],
         capture_output=True, text=True
     )
     whisper_time = time.time() - whisper_start
@@ -71,16 +82,16 @@ if whisper_cmd:
     if whisper_result.returncode != 0:
         print("Whisper error: {}".format(whisper_result.stderr[:500]))
 
-    # Read transcript
-    json_path = "/tmp/birs_audio.json"
-    if os.path.exists(json_path):
-        with open(json_path) as f:
+    # Read transcript (Whisper names output after input file)
+    whisper_json = os.path.join(TRANSCRIPTS_DIR, "{}.json".format(VIDEO_NAME))
+    if os.path.exists(whisper_json):
+        with open(whisper_json) as f:
             whisper_data = json.load(f)
         transcript = whisper_data.get("text", "")
     else:
-        txt_path = "/tmp/birs_audio.txt"
-        if os.path.exists(txt_path):
-            with open(txt_path) as f:
+        whisper_txt = os.path.join(TRANSCRIPTS_DIR, "{}.txt".format(VIDEO_NAME))
+        if os.path.exists(whisper_txt):
+            with open(whisper_txt) as f:
                 transcript = f.read()
 
     print("Transcript: {} chars ({:.1f}s)".format(len(transcript), whisper_time))
@@ -302,6 +313,16 @@ output = {
     "summary": summary
 }
 
-with open("/tmp/full_analysis.json", "w") as f:
+SUMMARY_PATH = os.path.join(SUMMARIES_DIR, "{}_analysis.json".format(VIDEO_NAME))
+with open(SUMMARY_PATH, "w") as f:
     json.dump(output, f, indent=2)
-print("\nFull results saved to /tmp/full_analysis.json")
+print("\nFull results saved to {}".format(SUMMARY_PATH))
+
+# Print output directory structure
+print("\n" + "=" * 60)
+print("OUTPUT FILES")
+print("=" * 60)
+print("MP3:        {}".format(AUDIO_PATH))
+print("Transcript: {}".format(os.path.join(TRANSCRIPTS_DIR, VIDEO_NAME + ".json")))
+print("Frames:     {}/".format(FRAMES_DIR))
+print("Summary:    {}".format(SUMMARY_PATH))

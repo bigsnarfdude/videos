@@ -36,12 +36,29 @@ python birs_video_analyzer.py /path/to/video.mp4
 - ffmpeg
 - Ollama with models:
   - `ministral-3:8b` (vision)
-  - `gpt-oss:20b` (summary)
+  - `gpt-oss:120b` (summary)
 - Optional: Whisper for audio transcription
 
 ## Output
 
-Results saved to `/tmp/full_analysis.json`:
+Results organized in `~/vlm_output/`:
+
+```
+~/vlm_output/
+├── mp3/                    # Extracted audio files
+│   └── {video_name}.mp3
+├── transcripts/            # Whisper JSON transcripts
+│   └── {video_name}.json
+├── frames/                 # Extracted video frames
+│   └── {video_name}/
+│       ├── frame_0000.jpg
+│       ├── frame_0001.jpg
+│       └── ...
+└── summaries/              # Final analysis JSON
+    └── {video_name}_analysis.json
+```
+
+Each summary JSON contains:
 - Frame-by-frame analysis
 - Timestamps and statistics
 - Executive summary
