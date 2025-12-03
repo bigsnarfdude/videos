@@ -43,7 +43,7 @@ def print_banner(text):
     print("=" * 60)
 
 
-def run_local_stages(video_path: str, model: str = "gemini-2.0-flash",
+def run_local_stages(video_path: str, model: str = "gemini-3-pro-preview",
                      style: str = "educational") -> dict:
     """Run stages 1-3 locally."""
 
@@ -249,7 +249,7 @@ def assemble_output(video_name: str, analysis: dict, script: str,
     return str(lecture_dir)
 
 
-def run_pipeline(video_path: str, model: str = "gemini-2.0-flash",
+def run_pipeline(video_path: str, model: str = "gemini-3-pro-preview",
                  style: str = "educational", skip_audio: bool = False) -> dict:
     """Run the full pipeline."""
 
@@ -315,12 +315,12 @@ def main():
 Examples:
   python pipeline.py https://videos.birs.ca/2025/25w5374/202512030901-Neshveyev.mp4
   python pipeline.py /path/to/video.mp4 --skip-audio
-  python pipeline.py video.mp4 --style casual --model gemini-2.0-flash
+  python pipeline.py video.mp4 --style casual --model gemini-3-pro-preview
         """
     )
     parser.add_argument("video", help="Video file path or URL")
-    parser.add_argument("--model", default="gemini-2.0-flash",
-                       help="Gemini model (default: gemini-2.0-flash)")
+    parser.add_argument("--model", default="gemini-3-pro-preview",
+                       help="Gemini model (default: gemini-3-pro-preview)")
     parser.add_argument("--style", choices=["educational", "casual", "deep_dive"],
                        default="educational", help="Podcast style")
     parser.add_argument("--skip-audio", action="store_true",

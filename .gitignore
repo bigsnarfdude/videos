@@ -7,8 +7,13 @@
 secrets.json
 credentials.json
 
-# Output directories
+# Output directories (large files)
+output/
 vlm_output/
+demo_output/
+
+# Webapp uploads
+webapp/uploads/
 
 # Python
 __pycache__/
@@ -20,3 +25,6 @@ venv/
 # Temp files
 *.tmp
 *.log
+
+# OS
+.DS_Store

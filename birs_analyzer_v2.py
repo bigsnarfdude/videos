@@ -195,7 +195,7 @@ def extract_json(text: str) -> dict:
     raise ValueError("Could not extract valid JSON from response")
 
 
-def analyze_video(video_path: str, model_name: str = "gemini-2.0-flash") -> dict:
+def analyze_video(video_path: str, model_name: str = "gemini-3-pro-preview") -> dict:
     """Analyze video and return structured JSON."""
 
     # Handle URL input
@@ -306,8 +306,8 @@ def analyze_video(video_path: str, model_name: str = "gemini-2.0-flash") -> dict
 def main():
     parser = argparse.ArgumentParser(description="BIRS Video Analyzer v2")
     parser.add_argument("video", help="Video file path or URL")
-    parser.add_argument("--model", default="gemini-2.0-flash",
-                       help="Model (default: gemini-2.0-flash)")
+    parser.add_argument("--model", default="gemini-3-pro-preview",
+                       help="Model (default: gemini-3-pro-preview)")
     parser.add_argument("--output", "-o", help="Custom output path")
 
     args = parser.parse_args()

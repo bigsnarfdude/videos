@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIRS NotebookLM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 500;
+            color: white;
+        }
+
+        .header .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: white;
+        }
+
+        /* Main Container - 3 Panels */
+        .container {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            height: calc(100vh - 52px);
+        }
+
+        /* Left Panel - Sources */
+        .panel-sources {
+            background: #16213e;
+            border-right: 1px solid #2a2a4a;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid #2a2a4a;
+            font-weight: 500;
+            font-size: 14px;
+            color: #a0a0c0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .upload-zone {
+            margin: 16px;
+            padding: 32px 16px;
+            border: 2px dashed #4a4a6a;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-zone:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .upload-zone .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .upload-zone p {
+            color: #808090;
+            font-size: 13px;
+        }
+
+        .source-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .source-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .source-item:hover {
+            background: rgba(102, 126, 234, 0.15);
+        }
+
+        .source-item.selected {
+            background: rgba(102, 126, 234, 0.25);
+        }
+
+        .source-item .icon {
+            font-size: 20px;
+        }
+
+        .source-item .name {
+            flex: 1;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .source-item .status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #2a2a4a;
+        }
+
+        .source-item .status.processing {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        .source-item .status.complete {
+            background: #10b981;
+            color: #000;
+        }
+
+        /* Center Panel - Chat */
+        .panel-chat {
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .welcome-message h2 {
+            font-size: 28px;
+            font-weight: 400;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2, #f093fb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-message p {
+            color: #808090;
+            font-size: 15px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .chat-input-container {
+            padding: 16px 24px 24px;
+            border-top: 1px solid #2a2a4a;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: #16213e;
+            border-radius: 24px;
+            padding: 8px 8px 8px 20px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #e0e0e0;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .chat-input::placeholder {
+            color: #606080;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .message {
+            max-width: 80%;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            background: #2a2a4a;
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Right Panel - Outputs */
+        .panel-outputs {
+            background: #16213e;
+            border-left: 1px solid #2a2a4a;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output-section {
+            padding: 16px;
+            border-bottom: 1px solid #2a2a4a;
+        }
+
+        .output-section h3 {
+            font-size: 12px;
+            color: #808090;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .audio-player {
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            height: 40px;
+        }
+
+        .output-card {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .output-card:hover {
+            background: #2a2a4a;
+        }
+
+        .output-card .title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .output-card .meta {
+            font-size: 11px;
+            color: #808090;
+        }
+
+        .process-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: transform 0.1s;
+        }
+
+        .process-btn:hover {
+            transform: scale(1.01);
+        }
+
+        .process-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .script-preview {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 12px;
+            line-height: 1.6;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: #a0a0c0;
+        }
+
+        /* Hidden file input */
+        #fileInput {
+            display: none;
+        }
+
+        /* Catalog Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #16213e;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #2a2a4a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #808090;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .modal-search {
+            padding: 16px 24px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #2a2a4a;
+        }
+
+        .modal-search input {
+            flex: 1;
+            min-width: 200px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .modal-search select {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+        }
+
+        .catalog-stats {
+            font-size: 13px;
+            color: #808090;
+            margin-bottom: 16px;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+
+        .video-card {
+            background: #1a1a2e;
+            border-radius: 10px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .video-card:hover {
+            background: #2a2a4a;
+            border-color: #667eea;
+        }
+
+        .video-card .title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-card .speaker {
+            font-size: 12px;
+            color: #a0a0c0;
+            margin-bottom: 8px;
+        }
+
+        .video-card .tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .video-card .tag {
+            font-size: 10px;
+            padding: 3px 8px;
+            background: #2a2a4a;
+            border-radius: 10px;
+            color: #808090;
+        }
+
+        .video-card .tag.field {
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #2a2a4a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pagination button {
+            background: #2a2a4a;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 14px;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .pagination button:hover {
+            background: #3a3a5a;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .browse-btn {
+            width: calc(100% - 32px);
+            margin: 0 16px 16px;
+            background: #2a2a4a;
+            border: 1px solid #4a4a6a;
+            border-radius: 8px;
+            padding: 10px;
+            color: #e0e0e0;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .browse-btn:hover {
+            background: #3a3a5a;
+            border-color: #667eea;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4a4a6a;
+            border-radius: 3px;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #667eea;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>BIRS NotebookLM</h1>
+        <span class="badge">Powered by Gemini 3 Pro</span>
+    </header>
+
+    <div class="container">
+        <!-- Left Panel: Sources -->
+        <div class="panel-sources">
+            <div class="panel-header">Sources</div>
+
+            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                <div class="icon">+</div>
+                <p>Upload lecture video</p>
+            </div>
+            <input type="file" id="fileInput" accept="video/*" onchange="uploadVideo(this)">
+
+            <button class="browse-btn" onclick="openCatalog()">
+                Browse 10,986 BIRS Lectures
+            </button>
+
+            <div class="source-list" id="sourceList">
+                <!-- Sources will be added here -->
+            </div>
+        </div>
+
+        <!-- Center Panel: Chat -->
+        <div class="panel-chat">
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <h2>Welcome to BIRS NotebookLM</h2>
+                    <p>Upload a mathematics lecture video to generate a podcast overview and chat about the content.</p>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <input type="text" class="chat-input" id="chatInput"
+                           placeholder="Ask about the lecture..."
+                           onkeypress="if(event.key==='Enter')sendMessage()">
+                    <button class="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Outputs -->
+        <div class="panel-outputs">
+            <div class="panel-header">Outputs</div>
+
+            <div class="output-section">
+                <h3>Deep Dive Podcast</h3>
+                <div class="audio-player" id="audioPlayer" style="display: none;">
+                    <audio controls id="podcastAudio">
+                        <source src="" type="audio/wav">
+                    </audio>
+                </div>
+                <div id="noAudio" style="color: #606080; font-size: 13px;">
+                    Process a video to generate podcast
+                </div>
+            </div>
+
+            <div class="output-section">
+                <h3>Analysis</h3>
+                <div id="analysisCards">
+                    <div style="color: #606080; font-size: 13px;">
+                        No analysis yet
+                    </div>
+                </div>
+            </div>
+
+            <div class="output-section">
+                <h3>Script Preview</h3>
+                <div class="script-preview" id="scriptPreview">
+                    Script will appear here after processing...
+                </div>
+            </div>
+
+            <div class="output-section">
+                <button class="process-btn" id="processBtn" onclick="processVideo()" disabled>
+                    Generate Podcast
+                </button>
+                <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: #808090;">
+                    <input type="checkbox" id="premiumMode">
+                    Premium TTS (higher quality)
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Catalog Modal -->
+    <div class="modal-overlay" id="catalogModal" onclick="if(event.target===this)closeCatalog()">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>BIRS Video Catalog</h2>
+                <button class="modal-close" onclick="closeCatalog()">&times;</button>
+            </div>
+            <div class="modal-search">
+                <input type="text" id="catalogSearch" placeholder="Search lectures, speakers, topics..."
+                       onkeyup="debounceSearch()">
+                <select id="fieldFilter" onchange="searchCatalog()">
+                    <option value="">All Fields</option>
+                </select>
+                <select id="yearFilter" onchange="searchCatalog()">
+                    <option value="">All Years</option>
+                </select>
+            </div>
+            <div class="modal-body">
+                <div class="catalog-stats" id="catalogStats">Loading catalog...</div>
+                <div class="video-grid" id="videoGrid"></div>
+            </div>
+            <div class="modal-footer">
+                <div class="catalog-stats" id="pageInfo">Page 1</div>
+                <div class="pagination">
+                    <button onclick="prevPage()" id="prevBtn" disabled>&larr; Previous</button>
+                    <button onclick="nextPage()" id="nextBtn">Next &rarr;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedSource = null;
+        let sources = [];
+
+        // Upload video
+        async function uploadVideo(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    sources.push(data.source);
+                    renderSources();
+                    selectSource(data.source.name);
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+            }
+        }
+
+        // Render source list
+        function renderSources() {
+            const list = document.getElementById('sourceList');
+            list.innerHTML = sources.map(s => `
+                <div class="source-item ${selectedSource === s.name ? 'selected' : ''}"
+                     onclick="selectSource('${s.name}')">
+                    <span class="icon">&#127909;</span>
+                    <span class="name">${s.name}</span>
+                    <span class="status ${s.status}">${s.status}</span>
+                </div>
+            `).join('');
+        }
+
+        // Select a source
+        function selectSource(name) {
+            selectedSource = name;
+            renderSources();
+            document.getElementById('processBtn').disabled = false;
+
+            // Load outputs if available
+            loadOutputs(name.replace(/\.[^/.]+$/, ''));
+        }
+
+        // Process video
+        async function processVideo() {
+            if (!selectedSource) return;
+
+            const btn = document.getElementById('processBtn');
+            btn.innerHTML = '<span class="spinner"></span> Processing...';
+            btn.disabled = true;
+
+            const premium = document.getElementById('premiumMode').checked;
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        video_name: selectedSource,
+                        premium: premium
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update source status
+                    const source = sources.find(s => s.name === selectedSource);
+                    if (source) source.status = 'complete';
+                    renderSources();
+
+                    // Load outputs
+                    loadOutputs(selectedSource.replace(/\.[^/.]+$/, ''));
+
+                    addMessage('assistant', 'Podcast generated! Click play to listen to your Deep Dive overview.');
+                } else {
+                    addMessage('assistant', 'Error: ' + data.error);
+                }
+            } catch (error) {
+                addMessage('assistant', 'Processing failed: ' + error.message);
+            }
+
+            btn.innerHTML = 'Generate Podcast';
+            btn.disabled = false;
+        }
+
+        // Load outputs for a video
+        async function loadOutputs(videoName) {
+            try {
+                // Load audio
+                const audioPlayer = document.getElementById('audioPlayer');
+                const audio = document.getElementById('podcastAudio');
+                audio.src = `/api/audio/${videoName}`;
+                audioPlayer.style.display = 'block';
+                document.getElementById('noAudio').style.display = 'none';
+
+                // Load script
+                const scriptResponse = await fetch(`/api/script/${videoName}`);
+                if (scriptResponse.ok) {
+                    const script = await scriptResponse.text();
+                    document.getElementById('scriptPreview').textContent = script;
+                }
+
+                // Load analysis
+                const outputsResponse = await fetch(`/api/outputs/${videoName}`);
+                if (outputsResponse.ok) {
+                    const outputs = await outputsResponse.json();
+                    if (outputs.analysis) {
+                        const meta = outputs.analysis.metadata || {};
+                        document.getElementById('analysisCards').innerHTML = `
+                            <div class="output-card">
+                                <div class="title">${meta.title || 'Lecture'}</div>
+                                <div class="meta">${meta.speaker || 'Unknown'} - ${meta.field || ''}</div>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.log('No outputs yet');
+            }
+        }
+
+        // Send chat message
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addMessage('user', message);
+            input.value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        video_name: selectedSource ? selectedSource.replace(/\.[^/.]+$/, '') : null
+                    })
+                });
+                const data = await response.json();
+                addMessage('assistant', data.response);
+            } catch (error) {
+                addMessage('assistant', 'Sorry, something went wrong.');
+            }
+        }
+
+        // Add message to chat
+        function addMessage(type, content) {
+            const messages = document.getElementById('chatMessages');
+            const welcome = messages.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+
+            const msg = document.createElement('div');
+            msg.className = `message ${type}`;
+            msg.textContent = content;
+            messages.appendChild(msg);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Load existing sources on page load
+        fetch('/api/sources')
+            .then(r => r.json())
+            .then(data => {
+                sources = data;
+                renderSources();
+            });
+
+        // ========== Catalog Functions ==========
+        let catalogPage = 1;
+        let catalogTotal = 0;
+        let catalogPages = 1;
+        let searchTimeout = null;
+
+        async function openCatalog() {
+            document.getElementById('catalogModal').classList.add('active');
+            await loadFilters();
+            await searchCatalog();
+        }
+
+        function closeCatalog() {
+            document.getElementById('catalogModal').classList.remove('active');
+        }
+
+        async function loadFilters() {
+            // Load fields
+            const fieldsRes = await fetch('/api/catalog/fields');
+            const fields = await fieldsRes.json();
+            const fieldSelect = document.getElementById('fieldFilter');
+            fieldSelect.innerHTML = '<option value="">All Fields</option>' +
+                fields.map(f => `<option value="${f}">${f}</option>`).join('');
+
+            // Load years
+            const yearsRes = await fetch('/api/catalog/years');
+            const years = await yearsRes.json();
+            const yearSelect = document.getElementById('yearFilter');
+            yearSelect.innerHTML = '<option value="">All Years</option>' +
+                years.map(y => `<option value="${y}">${y}</option>`).join('');
+        }
+
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => searchCatalog(), 300);
+        }
+
+        async function searchCatalog(page = 1) {
+            catalogPage = page;
+            const q = document.getElementById('catalogSearch').value;
+            const field = document.getElementById('fieldFilter').value;
+            const year = document.getElementById('yearFilter').value;
+
+            const params = new URLSearchParams({
+                q, field, year, page, per_page: 20
+            });
+
+            const res = await fetch(`/api/catalog?${params}`);
+            const data = await res.json();
+
+            catalogTotal = data.total;
+            catalogPages = data.pages;
+
+            document.getElementById('catalogStats').textContent =
+                `${data.total.toLocaleString()} lectures found`;
+            document.getElementById('pageInfo').textContent =
+                `Page ${data.page} of ${data.pages}`;
+
+            document.getElementById('prevBtn').disabled = page <= 1;
+            document.getElementById('nextBtn').disabled = page >= data.pages;
+
+            renderVideoGrid(data.videos);
+        }
+
+        function renderVideoGrid(videos) {
+            const grid = document.getElementById('videoGrid');
+            grid.innerHTML = videos.map(v => `
+                <div class="video-card" onclick="addFromCatalog('${v.id}')">
+                    <div class="title">${escapeHtml(v.title)}</div>
+                    <div class="speaker">${escapeHtml(v.speaker.name)}</div>
+                    <div class="tags">
+                        <span class="tag field">${v.content.field}</span>
+                        <span class="tag">${v.workshop.year}</span>
+                        <span class="tag">${v.workshop.code}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function prevPage() {
+            if (catalogPage > 1) searchCatalog(catalogPage - 1);
+        }
+
+        function nextPage() {
+            if (catalogPage < catalogPages) searchCatalog(catalogPage + 1);
+        }
+
+        async function addFromCatalog(videoId) {
+            try {
+                const res = await fetch('/api/catalog/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_id: videoId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    sources.push(data.source);
+                    renderSources();
+                    closeCatalog();
+                    selectSource(data.source.name);
+                    addMessage('assistant', `Added "${data.source.name}" by ${data.source.speaker}. Click "Generate Podcast" to create your Deep Dive overview!`);
+                }
+            } catch (error) {
+                console.error('Failed to add video:', error);
+            }
+        }
+    </script>
+</body>
+</html>

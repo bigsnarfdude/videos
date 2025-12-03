@@ -1,0 +1,23 @@
+Alex: You know, when I think of mathematical biology, I usually imagine differential equations or complex simulations. I definitely don't think of board games.
+
+Sam: (Laughs) Right? But that’s exactly where Van Pham starts her lecture on R-loops. She draws a really charming parallel to the board game Carcassonne.
+
+Alex: Carcassonne? That’s the one where you lay down square tiles to build medieval landscapes, right? Roads have to connect to roads, fields to fields.
+
+Sam: Exactly. Pham uses that same logic to model something happening inside our cells called an R-loop. It's a structure that forms when DNA is being transcribed into RNA. Sometimes, instead of the RNA floating away, it gets stuck and tangles up with the DNA, creating a three-stranded knot.
+
+Alex: Okay, so how do tiles help with a DNA knot?
+
+Sam: Well, imagine the DNA and RNA strands as the roads and rivers on those tiles. Pham and her colleagues designed a set of square tiles—mathematicians call them Wang tiles—where the edges have specific rules. The red lines represent RNA, and the blue ones are DNA.
+
+Alex: I see. So by following the rules of which tile can fit next to which, you build a picture of the molecule?
+
+Sam: Precisely. They create a "tiling system." You start with one tile and grow the structure downwards and to the right. The resulting shapes look a bit like combs or trees.
+
+Alex: And I assume not all shapes are equally likely?
+
+Sam: That's the key. They assign probabilities to the connections. By calculating the entropy—basically a measure of disorder—they can rank which structures are most likely to appear in nature. It turns out the most probable ones look like simple blobs.
+
+Alex: (Hmm) It’s fascinating how they turn a biological mess into a geometry problem.
+
+Sam: It really is. They're even looking at using something called tree polynomials to classify all these different shapes mathematically. It’s a great example of how abstract math can give us a handle on the physical reality of our genetics.

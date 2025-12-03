@@ -36,8 +36,8 @@ PROMPTS = {
     "educational": '''You are creating a podcast script about a mathematics lecture.
 
 SPEAKERS:
-- [S1] Alex: Curious graduate student, asks insightful questions
-- [S2] Sam: Expert mathematician, explains concepts clearly and enthusiastically
+- [S1] Alex: Thoughtful graduate student, asks insightful questions with a calm, curious tone
+- [S2] Sam: Expert mathematician, explains concepts clearly with a measured, professorial pace
 
 LECTURE CONTENT:
 Speaker: {speaker}
@@ -53,49 +53,69 @@ Main Equations:
 Theorems/Definitions:
 {theorems}
 
+CRITICAL - TEXT-TO-SPEECH REQUIREMENTS:
+- NEVER use LaTeX notation like $, \\, or mathematical symbols
+- Spell out ALL equations in natural spoken English
+- Example: Instead of "$\\lim_{{T \\to \\infty}}$" write "the limit as T approaches infinity"
+- Example: Instead of "$\\Gamma(G,S)$" write "Gamma of G and S"
+- The script will be read by a TTS engine that cannot speak math notation
+
+TONE AND PACING:
+- Calm, measured, and thoughtful - like a relaxed NPR interview
+- Natural pauses between ideas (use ... for slight pauses)
+- NOT hyper, rushed, or overly excited
+- Speak as if you have all the time in the world
+- Warm but not manic
+
 GUIDELINES:
 - Create a 2-3 minute dialogue (300-400 words)
-- Start with an engaging hook about the topic
+- Start with a gentle hook about the topic
 - Alex asks questions a smart student would ask
 - Sam explains using analogies and clear examples
-- Reference specific equations/theorems from the lecture
-- Include 2-3 natural non-verbals: (laughs), (hmm), (sighs)
-- End with a key takeaway or "aha moment"
+- Reference specific concepts from the lecture
+- Include 2-3 natural non-verbals: (laughs), (hmm), (pauses)
+- End with a thoughtful takeaway
 - Make complex math accessible without dumbing it down
 
 OUTPUT FORMAT:
 Return ONLY the dialogue script, starting with [S1] or [S2].
 Each speaker turn on a new line.
 Example:
-[S1] So today we're diving into quantum walks on graphs...
-[S2] That's right! And what makes this fascinating is...
+[S1] So today we're exploring quantum walks on graphs... it's quite fascinating.
+[S2] Indeed. And what makes this particularly interesting is...
 
 Generate the podcast script now:''',
 
-    "casual": '''Create a casual, fun podcast about this math lecture.
+    "casual": '''Create a relaxed, conversational podcast about this math lecture.
 
 SPEAKERS:
-- [S1] Alex: Enthusiastic learner, loves "mind-blown" moments
-- [S2] Sam: Math expert who makes things fun and relatable
+- [S1] Alex: Curious learner with a warm, friendly tone
+- [S2] Sam: Math expert who explains things like chatting with a friend over coffee
 
 LECTURE:
 {speaker} talked about "{title}" in {field}.
 Summary: {summary}
-Cool equations: {equations}
+Key ideas: {equations}
+
+CRITICAL - TEXT-TO-SPEECH REQUIREMENTS:
+- NEVER use LaTeX, $, \\, or mathematical symbols
+- Write ALL math in plain spoken English
+- Example: "the square root of x" NOT "$\\sqrt{{x}}$"
 
 STYLE:
-- Very conversational, like friends chatting
-- Use humor and analogies
-- More (laughs) and expressions of wonder
+- Relaxed and conversational, like friends at a coffee shop
+- Calm pace, no rushing
+- Natural humor, gentle (laughs)
+- NOT hyper or manic
 - 250-350 words
 
 OUTPUT: Just the dialogue with [S1]/[S2] tags.''',
 
-    "deep_dive": '''Create a technical deep-dive podcast for advanced students.
+    "deep_dive": '''Create a thoughtful technical discussion for advanced students.
 
 SPEAKERS:
-- [S1] Alex: PhD student, asks technical follow-ups
-- [S2] Sam: Research mathematician, provides rigorous detail
+- [S1] Alex: PhD student, asks technical follow-ups with academic composure
+- [S2] Sam: Research mathematician, provides rigorous detail at a measured pace
 
 LECTURE CONTENT:
 Speaker: {speaker}
@@ -111,13 +131,18 @@ Equations (discuss these in detail):
 Theorems and Definitions:
 {theorems}
 
+CRITICAL - TEXT-TO-SPEECH REQUIREMENTS:
+- NEVER use LaTeX notation ($, \\, mathematical symbols)
+- Write ALL equations in spoken English
+- Example: "f of x equals x squared" NOT "$f(x) = x^2$"
+
 GUIDELINES:
 - 400-500 words of substantive mathematical discussion
-- Don't shy away from technical details
+- Thoughtful, academic tone - like a seminar discussion
+- NOT rushed or hyper - take time to explain
 - Discuss proof strategies and key lemmas
 - Reference connections to other areas
-- Include precise mathematical language
-- Minimal non-verbals, focus on content
+- Speak equations naturally in words
 
 OUTPUT: Dialogue script with [S1]/[S2] tags only.'''
 }
@@ -163,7 +188,7 @@ def extract_lecture_content(analysis: dict) -> dict:
     }
 
 
-def generate_script(analysis: dict, style: str = "educational", model_name: str = "gemini-2.0-flash") -> str:
+def generate_script(analysis: dict, style: str = "educational", model_name: str = "gemini-3-pro-preview") -> str:
     """Generate podcast script from analysis."""
 
     # Configure API
@@ -228,6 +253,12 @@ def validate_script(script: str) -> dict:
     non_verbals = ["(laughs)", "(sighs)", "(hmm)", "(pauses)", "(chuckles)"]
     found_non_verbals = [nv for nv in non_verbals if nv in script.lower()]
 
+    # CRITICAL: Check for LaTeX that Dia TTS cannot speak
+    latex_patterns = ["$", "\\", "_{", "^{", "\\frac", "\\sum", "\\int", "\\lim"]
+    found_latex = [p for p in latex_patterns if p in script]
+    if found_latex:
+        issues.append(f"CRITICAL: Script contains LaTeX that TTS cannot speak: {found_latex}")
+
     return {
         "valid": len(issues) == 0,
         "issues": issues,
@@ -235,7 +266,8 @@ def validate_script(script: str) -> dict:
             "word_count": word_count,
             "s1_turns": s1_count,
             "s2_turns": s2_count,
-            "non_verbals": found_non_verbals
+            "non_verbals": found_non_verbals,
+            "has_latex": len(found_latex) > 0
         }
     }
 
@@ -245,7 +277,7 @@ def main():
     parser.add_argument("analysis", help="Path to analysis JSON file")
     parser.add_argument("--style", choices=["educational", "casual", "deep_dive"],
                        default="educational", help="Script style")
-    parser.add_argument("--model", default="gemini-2.0-flash", help="Gemini model")
+    parser.add_argument("--model", default="gemini-3-pro-preview", help="Gemini model")
     parser.add_argument("--output", "-o", help="Output script path")
 
     args = parser.parse_args()
