@@ -192,10 +192,36 @@ Timestamped outline of the lecture structure.
 
 ```bash
 pip install google-generativeai
+```
 
-# API key (store in environment or file)
+### API Key Storage (IMPORTANT: Keep out of git)
+
+**Option 1: External file (recommended)**
+```bash
+# Store key in home directory (not in repo)
+echo "your-api-key" > ~/.gemini_api_key
+chmod 600 ~/.gemini_api_key
+```
+
+**Option 2: Environment variable**
+```bash
 export GOOGLE_API_KEY="your-api-key"
-# Or use existing key from ~/pdf_reader.py
+```
+
+**In Python script:**
+```python
+import os
+
+# Load from file (preferred)
+def get_api_key():
+    key_file = os.path.expanduser("~/.gemini_api_key")
+    if os.path.exists(key_file):
+        with open(key_file) as f:
+            return f.read().strip()
+    # Fallback to environment
+    return os.environ.get("GOOGLE_API_KEY")
+
+genai.configure(api_key=get_api_key())
 ```
 
 ---

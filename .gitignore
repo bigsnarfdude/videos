@@ -1,0 +1,22 @@
+# API keys - NEVER commit
+*.key
+*_key
+*_api_key
+.env
+.env.*
+secrets.json
+credentials.json
+
+# Output directories
+vlm_output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Temp files
+*.tmp
+*.log
