@@ -151,21 +151,28 @@ Output format:
 }
 ```
 
-### 4. Audio Overview (Podcast Generation)
-**Tool**: [Podcastfy](https://github.com/souzatharsis/podcastfy) (Apache 2.0)
+### 4. Audio Overview (Custom Built)
+**Approach**: Generate podcast script with Gemini, synthesize with Google TTS
 - Input: Structured JSON from Gemini analysis
 - Output: 5-10 minute audio conversation about the lecture
 - Two AI hosts discuss the math concepts
 
 ```python
-from podcastfy.client import generate_podcast
+# Step 1: Generate conversation script with Gemini
+PODCAST_PROMPT = """
+Create a 5-minute podcast script about this math lecture.
+Two hosts: Alex (curious learner) and Sam (expert explainer).
+Make complex math accessible. Include:
+- Hook/intro
+- Key concepts explained simply
+- "Aha moment" insights
+- Takeaway for listeners
+Output as JSON: [{"speaker": "Alex", "text": "..."}, ...]
+"""
 
-# Generate podcast from lecture analysis
-audio_file = generate_podcast(
-    text=lecture_summary,
-    conversation_style="educational",
-    language="en"
-)
+# Step 2: Synthesize with Google Cloud TTS
+from google.cloud import texttospeech
+# Different voices for each host
 ```
 
 ### 5. Q&A Chat Interface
@@ -208,7 +215,7 @@ Output as JSON array.
 | Component | Tool | Why |
 |-----------|------|-----|
 | Video Analysis | Gemini 3 Pro Preview | Best multimodal, math OCR |
-| Audio Podcast | Podcastfy | Open source NotebookLM alternative |
+| Audio Podcast | Gemini + Google TTS | Custom built for hackathon |
 | TTS | ElevenLabs / Google TTS | High quality voices |
 | Vector DB | ChromaDB | Simple, local |
 | Backend | FastAPI | Quick to build |
@@ -261,7 +268,6 @@ Output as JSON array.
 - [bigsnarfdude/videoSummarization](https://github.com/bigsnarfdude/videoSummarization) - Flask frontend
 
 ### Open Source Tools
-- [Podcastfy](https://github.com/souzatharsis/podcastfy) - Podcast generation
 - [Gradio](https://gradio.app) - UI framework
 - [ChromaDB](https://www.trychroma.com) - Vector store
 

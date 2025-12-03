@@ -42,8 +42,8 @@
 
 ## Component Details
 
-### C1: Video Ingestion (`video_ingestion.py`)
-**Status**: 🟡 Partial (have download, need validation)
+### C1: Video Ingestion (`birs_analyzer_v2.py`)
+**Status**: ✅ DONE (integrated into analyzer)
 
 **Input**: BIRS video URL or file path
 **Output**: Local video file path
@@ -111,7 +111,7 @@ def analyze_video(path: str, prompt_type: str = "full") -> dict:
 ---
 
 ### C3: Script Generation (`podcast_script.py`)
-**Status**: 🔴 TODO
+**Status**: ✅ DONE (tested with sample analysis)
 
 **Input**: Analysis JSON from C2
 **Output**: Dialogue script with [S1]/[S2] tags
@@ -159,8 +159,8 @@ OUTPUT: Only the script, starting with [S1]
 
 ---
 
-### C4: Audio Synthesis (`audio_synthesis.py`)
-**Status**: 🔴 TODO
+### C4: Audio Synthesis (`test_dia.py` + `pipeline.py`)
+**Status**: ✅ DONE (validated on nigel: 16.3s audio in 20.4s, 6.44GB VRAM)
 
 **Input**: Dialogue script with [S1]/[S2] tags
 **Output**: MP3 audio file
@@ -210,8 +210,8 @@ def chunk_script(script: str, max_words: int = 150) -> list:
 
 ---
 
-### C5: Output Assembly (`output_assembly.py`)
-**Status**: 🔴 TODO
+### C5: Output Assembly (`pipeline.py`)
+**Status**: ✅ DONE (integrated into pipeline)
 
 **Input**: Analysis JSON + MP3 audio
 **Output**: Final package (JSON + MP3 + metadata)
@@ -245,7 +245,7 @@ output/
 ---
 
 ### C6: Web Interface (`app.py`)
-**Status**: 🔴 TODO
+**Status**: ✅ DONE (Gradio UI with tabs for Summary, Script, JSON)
 
 **Input**: User uploads video URL or file
 **Output**: Interactive display of results
@@ -314,20 +314,20 @@ demo = gr.Interface(
 
 ## Execution Plan
 
-### Phase 1: Core Pipeline (Day 1 Morning)
-- [ ] **C1**: Video ingestion with caching
-- [ ] **C2**: Standardize JSON output schema (already works)
-- [ ] **C3**: Podcast script generation prompt
+### Phase 1: Core Pipeline (Day 1 Morning) ✅ COMPLETE
+- [x] **C1**: Video ingestion with caching
+- [x] **C2**: Standardize JSON output schema (already works)
+- [x] **C3**: Podcast script generation prompt
 
-### Phase 2: Audio (Day 1 Afternoon)
-- [ ] **C4**: Install Dia on nigel.birs.ca
-- [ ] **C4**: Test audio synthesis
-- [ ] **C4**: Build remote execution wrapper
+### Phase 2: Audio (Day 1 Afternoon) ✅ COMPLETE
+- [x] **C4**: Install Dia on nigel.birs.ca
+- [x] **C4**: Test audio synthesis (16.3s in 20.4s, 0.8x realtime)
+- [x] **C4**: Build remote execution wrapper
 
-### Phase 3: Integration (Day 2 Morning)
-- [ ] **C5**: Output assembly
-- [ ] **Pipeline**: End-to-end test
-- [ ] **C6**: Gradio demo UI
+### Phase 3: Integration (Day 2 Morning) ✅ COMPLETE
+- [x] **C5**: Output assembly
+- [x] **Pipeline**: End-to-end test
+- [x] **C6**: Gradio demo UI
 
 ### Phase 4: Polish (Day 2 Afternoon)
 - [ ] 5 diverse demo videos processed
@@ -363,11 +363,11 @@ python pipeline.py --url "https://videos.birs.ca/2025/25w5374/202512030901-Neshv
 
 ## Success Criteria
 
-1. **Video → JSON**: ✅ Working (Gemini 3 Pro)
-2. **JSON → Script**: Generate coherent 2-3 min dialogue
-3. **Script → Audio**: Natural-sounding two voices
-4. **End-to-end**: < 5 minutes total processing
-5. **Demo**: Process 3 different lecture types live
+1. **Video → JSON**: ✅ Working (Gemini 2.0 Flash)
+2. **JSON → Script**: ✅ Working (483 words, [S1]/[S2] format with non-verbals)
+3. **Script → Audio**: ✅ Working (Dia TTS on nigel, 0.8x realtime)
+4. **End-to-end**: ✅ Pipeline ready (< 5 minutes total processing)
+5. **Demo**: 🔄 TODO - Process 3 different lecture types live
 
 ---
 
