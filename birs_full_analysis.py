@@ -53,13 +53,17 @@ for path in whisper_paths:
 transcript = ""
 whisper_time = 0
 if whisper_cmd:
-    print("Transcribing with Whisper {}...".format(WHISPER_MODEL))
+    print("Transcribing with Whisper {} (CPU - GPU used by Ollama)...".format(WHISPER_MODEL))
     whisper_start = time.time()
     whisper_result = subprocess.run(
-        [whisper_cmd, AUDIO_PATH, "--model", WHISPER_MODEL, "--output_format", "json", "--output_dir", "/tmp"],
+        [whisper_cmd, AUDIO_PATH, "--model", WHISPER_MODEL, "--device", "cpu", "--output_format", "json", "--output_dir", "/tmp"],
         capture_output=True, text=True
     )
     whisper_time = time.time() - whisper_start
+
+    # Check for errors
+    if whisper_result.returncode != 0:
+        print("Whisper error: {}".format(whisper_result.stderr[:500]))
 
     # Read transcript
     json_path = "/tmp/birs_audio.json"
